@@ -34,7 +34,7 @@ export function QueueView({ initial }: { initial: SignRequest[] }) {
       <PageHeader
         eyebrow="Queue"
         title="Signing and approval requests"
-        description="Every callback the Co-Signer posted to this handler. Pending items still respond with RETRY until you approve, reject, or ignore them."
+        description="Every callback the Co-Signer posted. Signing requests pass through APPROVE because Fireblocks TAP already authorized the bot."
       />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

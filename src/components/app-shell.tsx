@@ -74,7 +74,7 @@ export function AppShell({
             <span className="text-sm font-medium">Fireblocks Co-Sign</span>
           </div>
           <p className="hidden text-sm text-muted-foreground lg:block">
-            Callback handler · TAP ALLOW → APPROVE
+            Callback handler · Fireblocks TAP · pass-through APPROVE
           </p>
           <SimulateDialog />
         </header>

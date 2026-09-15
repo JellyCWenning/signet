@@ -43,7 +43,7 @@ export function SettingsView({
       <PageHeader
         eyebrow="Workspace"
         title="Callback handler settings"
-        description="Co-Signer callback URL is this origin. Fireblocks posts here; we run our TAP. ALLOW returns APPROVE."
+        description="Co-Signer callback URL is this origin. Fireblocks TAP is the only policy. This handler returns APPROVE."
       />
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -58,17 +58,12 @@ export function SettingsView({
             <Endpoint
               method="POST"
               path="/v2/tx_sign_request"
-              detail="Co-Signer signing callback. TAP ALLOW → APPROVE, BLOCK → REJECT, 2-TIER → RETRY."
+              detail="Pass-through APPROVE. Fireblocks TAP already authorized the bot's transfer."
             />
             <Endpoint
               method="POST"
               path="/v2/config_change_sign_request"
-              detail="Config callbacks (POLICY_APPROVAL). Held by TAP until a human signs."
-            />
-            <Endpoint
-              method="POST"
-              path="/api/tap/evaluate"
-              detail="Dry-run the same TAP without enqueueing. Same ALLOW → APPROVE mapping as the callback."
+              detail="Same pass-through APPROVE for configuration signing requests."
             />
             <p className="text-xs text-muted-foreground">
               Auth mode: {data?.settings.callbackAuth === "jwt" ? "JWT (RS256)" : "JSON (demo)"}.

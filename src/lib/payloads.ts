@@ -1,4 +1,4 @@
-import { getBot, getSettings, getStats, listApiUsers, listAudit, listCosigners, listPendingPolicyApprovals, listRequests, listRules } from "@/lib/store";
+import { getBot, getSettings, getStats, listApiUsers, listAudit, listCosigners, listRequests } from "@/lib/store";
 
 export function workspacePayload() {
   return {
@@ -9,11 +9,8 @@ export function workspacePayload() {
   };
 }
 
-export function policyPayload() {
-  return {
-    rules: listRules(),
-    pending: listPendingPolicyApprovals(),
-  };
+export function recentSigned() {
+  return listRequests({ status: "auto_approved" }).slice(0, 8);
 }
 
 export function botPayload() {

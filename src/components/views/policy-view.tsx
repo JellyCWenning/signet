@@ -1,300 +1,69 @@
-"use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
-import { useJson } from "@/hooks/use-json";
-import { TapCallbackMap } from "@/components/tap-callback-map";
-import { amountLabel, assetLabel, destLabel, sourceLabel, tapAction, typeLabel } from "@/lib/tap";
-import { cn } from "@/lib/utils";
-import type { PolicyDecision, PolicyRule, SignRequest } from "@/lib/types";
 
-export function PolicyView({
-  initial,
-}: {
-  initial: { rules: PolicyRule[]; pending: SignRequest[] };
-}) {
-  const { data, error, loading, setData } = useJson("/api/policy", 2500, initial);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState<string | null>(null);
-  const [newName, setNewName] = useState("Allowlisted CEX under ceiling");
-  const [newDest, setNewDest] = useState("EXCHANGE");
-  const [newMax, setNewMax] = useState("50000");
-  const [newDecision, setNewDecision] = useState<PolicyDecision>("APPROVE");
-
-  const rules = data?.rules ?? [];
-  const pending = data?.pending ?? [];
-
-  async function propose(rule: PolicyRule, patch: { enabled?: boolean; maxUsd?: number | null }) {
-    setBusy(rule.id);
-    try {
-      const response = await fetch("/api/policy", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id: rule.id, ...patch }),
-      });
-      const body = (await response.json()) as {
-        error?: string;
-        rules?: PolicyRule[];
-        pending?: SignRequest[];
-        change?: SignRequest;
-      };
-      if (!response.ok || !body.rules || !body.pending) {
-        throw new Error(body.error ?? "Unable to submit TAP change");
-      }
-      setData({ rules: body.rules, pending: body.pending });
-      setDrafts((current) => {
-        const next = { ...current };
-        delete next[rule.id];
-        return next;
-      });
-      toast.success("Waiting on human approval", { description: body.change?.id });
-    } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to submit");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function addRule() {
-    setBusy("new");
-    try {
-      const maxUsd = newMax === "" ? null : Number(newMax);
-      if (maxUsd != null && Number.isNaN(maxUsd)) throw new Error("Enter a valid USD ceiling");
-      const response = await fetch("/api/policy", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: newName,
-          destType: newDest,
-          maxUsd,
-          decision: newDecision,
-          designatedSigner: "api_signer_treasury",
-        }),
-      });
-      const body = (await response.json()) as {
-        error?: string;
-        rules?: PolicyRule[];
-        pending?: SignRequest[];
-        change?: SignRequest;
-      };
-      if (!response.ok || !body.rules || !body.pending) {
-        throw new Error(body.error ?? "Unable to add TAP rule");
-      }
-      setData({ rules: body.rules, pending: body.pending });
-      toast.success("New TAP rule submitted for approval", { description: body.change?.id });
-    } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to add TAP rule");
-    } finally {
-      setBusy(null);
-    }
-  }
-
+export function PolicyView() {
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Transaction Authorization Policy"
-        title="TAP"
-        description="This is our TAP, served behind the Co-Signer callback. First matching live rule wins: ALLOW returns APPROVE immediately. Changing a threshold or rule creates a POLICY_APPROVAL — live TAP does not change until a human approves it."
+        title="Fireblocks TAP"
+        description="策略只在 Fireblocks 工作区跑一遍。Bot 能发到 Co-Signer 的交易，已经通过了那份 TAP。本服务不再做第二套规则。"
       />
 
-      <TapCallbackMap />
-
-      {pending.length > 0 ? (
-        <Card className="border-amber-400/30">
-          <CardHeader>
-            <CardTitle>Pending human approval</CardTitle>
-            <CardDescription>
-              These TAP edits are drafts. The Co-Signer still evaluates the live rules below.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {pending.map((request) => (
-              <div key={request.id} className="flex items-center justify-between gap-3 text-sm">
-                <p>
-                  <span className="font-mono text-xs text-muted-foreground">{request.id}</span>
-                  <span className="ml-2">{String(request.extraInfo?.summary ?? "TAP change")}</span>
-                </p>
-                <Button size="sm" nativeButton={false} render={<Link href={`/queue/${request.id}`} />}>
-                  Review
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {loading && !data ? (
-        <p className="text-sm text-muted-foreground">Loading TAP…</p>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Live rules</CardTitle>
-            <CardDescription>
-              Initiator is the API bot paired to the Co-Signer. Amount is USD / single transaction.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>#</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Destination</TableHead>
-                  <TableHead>Asset</TableHead>
-                  <TableHead>Threshold</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Designated signer</TableHead>
-                  <TableHead className="text-right">On</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rules.map((rule) => {
-                  const action = tapAction(rule.decision);
-                  const draft = drafts[rule.id] ?? String(rule.match.maxUsd ?? "");
-                  return (
-                    <TableRow key={rule.id} className={cn(!rule.enabled && "opacity-50")}>
-                      <TableCell className="font-mono text-xs">{rule.priority}</TableCell>
-                      <TableCell>{typeLabel(rule)}</TableCell>
-                      <TableCell>{sourceLabel(rule)}</TableCell>
-                      <TableCell>{destLabel(rule)}</TableCell>
-                      <TableCell>{assetLabel(rule)}</TableCell>
-                      <TableCell>
-                        {rule.decision === "APPROVE" || rule.match.maxUsd != null ? (
-                          <div className="flex min-w-40 items-center gap-1.5">
-                            <Input
-                              type="number"
-                              min={0}
-                              value={draft}
-                              className="h-7 w-24"
-                              onChange={(event) =>
-                                setDrafts((current) => ({
-                                  ...current,
-                                  [rule.id]: event.target.value,
-                                }))
-                              }
-                            />
-                            <Button
-                              type="button"
-                              size="xs"
-                              variant="outline"
-                              disabled={busy === rule.id}
-                              onClick={() => {
-                                const value = draft === "" ? null : Number(draft);
-                                if (value != null && Number.isNaN(value)) {
-                                  toast.error("Enter a number");
-                                  return;
-                                }
-                                void propose(rule, { maxUsd: value });
-                              }}
-                            >
-                              Save
-                            </Button>
-                          </div>
-                        ) : (
-                          amountLabel(rule)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            action === "ALLOW"
-                              ? "border-teal-400/30 text-teal-200"
-                              : action === "BLOCK"
-                                ? "border-red-400/30 text-red-200"
-                                : "border-amber-400/30 text-amber-200"
-                          }
-                        >
-                          {action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{rule.designatedSigner}</TableCell>
-                      <TableCell className="text-right">
-                        <Switch
-                          checked={rule.enabled}
-                          disabled={busy === rule.id}
-                          onCheckedChange={(checked) => void propose(rule, { enabled: checked })}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
+      <Card className="border-teal-400/25">
         <CardHeader>
-          <CardTitle>Add TAP rule</CardTitle>
-          <CardDescription>
-            The new rule is a draft until an operator approves the POLICY_APPROVAL request.
-          </CardDescription>
+          <CardTitle>唯一策略入口</CardTitle>
+          <CardDescription>在 Fireblocks Console 配 TAP，不在这里改阈值。</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Input value={newName} onChange={(event) => setNewName(event.target.value)} />
-          <Select value={newDest} onValueChange={(value) => setNewDest(String(value))}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="VAULT">Vault</SelectItem>
-              <SelectItem value="EXCHANGE">Exchange</SelectItem>
-              <SelectItem value="UNMANAGED">Unmanaged / allowlisted</SelectItem>
-              <SelectItem value="ONE_TIME">One-time address</SelectItem>
-              <SelectItem value="*">Any destination</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            type="number"
-            min={0}
-            value={newMax}
-            onChange={(event) => setNewMax(event.target.value)}
-            placeholder="USD ceiling"
-          />
-          <Select
-            value={newDecision}
-            onValueChange={(value) => setNewDecision(value as PolicyDecision)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="APPROVE">ALLOW (auto-sign)</SelectItem>
-              <SelectItem value="REJECT">BLOCK</SelectItem>
-              <SelectItem value="REVIEW">2-TIER (hold)</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button type="button" onClick={() => void addRule()} disabled={busy === "new"}>
-            Submit for approval
-          </Button>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            工作区 TAP 按来源、目的地、资产、金额、ALLOW / BLOCK / 2-TIER（指定签名人）过滤。过不了 TAP
+            的交易到不了 API Co-Signer。
+          </p>
+          <p>
+            配对 bot 打开 callback 时，Co-Signer 仍会 POST{" "}
+            <code className="font-mono text-teal-300">/v2/tx_sign_request</code>
+            。本 handler 一律返回 <span className="font-mono text-teal-200">APPROVE</span>
+            ，让 enclave 完成签名。也可以关掉 callback：Co-Signer 对已送达的请求直接签。
+          </p>
         </CardContent>
       </Card>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card size="sm">
+          <CardHeader>
+            <CardDescription>Fireblocks TAP</CardDescription>
+            <CardTitle className="text-base">拦在工作区</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              ALLOW 才进入签名。BLOCK 的交易不会到 Co-Signer。2-TIER 走控制台指定签名人，不是本服务队列。
+            </p>
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardDescription>API Bot</CardDescription>
+            <CardTitle className="text-base">只发已授权的交易</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              treasury-bot 作为 Signer 发出来的请求，已经过 TAP。Callback 不再重判金额或地址。
+            </p>
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardDescription>Callback</CardDescription>
+            <CardTitle className="text-base">透传 APPROVE</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              用来记账和审计。回 APPROVE 后 Co-Signer 用 enclave 分片参与 MPC，签名完成。
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

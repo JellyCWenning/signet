@@ -126,14 +126,14 @@ export function RequestDetailView({
         <div className="space-y-6">
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Policy</CardTitle>
-              <CardDescription>
-                First matching enabled rule decides auto-sign, auto-reject, or hold.
-              </CardDescription>
+            <CardTitle>Policy</CardTitle>
+            <CardDescription>
+              Fireblocks workspace TAP already authorized this request. Callback is pass-through.
+            </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Fact label="Matched rule" value={data.matchedRuleName ?? "Default hold"} />
-              <Fact label="Verdict" value={data.policyVerdict ?? "REVIEW"} />
+              <Fact label="Matched rule" value={data.matchedRuleName ?? "Fireblocks TAP"} />
+              <Fact label="Verdict" value={data.policyVerdict ?? "APPROVE"} />
               <Fact
                 label="Decision source"
                 value={data.decisionSource ?? (pending ? "waiting on operator" : "—")}

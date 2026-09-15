@@ -23,17 +23,17 @@ export function OverviewView({
   initialQueue: SignRequest[];
 }) {
   const workspace = useJson("/api/workspace", 2500, initialWorkspace);
-  const queue = useJson<SignRequest[]>("/api/queue?status=pending", 2500, initialQueue);
+  const queue = useJson<SignRequest[]>("/api/queue?status=auto_approved", 2500, initialQueue);
 
   const stats = workspace.data?.stats;
-  const pending = queue.data ?? [];
+  const signed = queue.data ?? [];
 
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="Workspace"
         title="Co-sign desk"
-        description="Pair an API bot to the Co-Signer. The callback asks this TAP; ALLOW returns APPROVE immediately. Anything else — including TAP edits — waits for a human."
+        description="Pair an API bot to the Co-Signer. Fireblocks TAP is the only policy. The callback pass-through returns APPROVE so the enclave can sign."
         actions={
           <Button nativeButton={false} render={<Link href="/queue" />}>
             Open queue
@@ -55,24 +55,23 @@ export function OverviewView({
         </Card>
         <Card size="sm">
           <CardHeader>
-            <CardDescription>2. TAP match</CardDescription>
-            <CardTitle className="text-base">ALLOW auto-approves</CardTitle>
+            <CardDescription>2. Fireblocks TAP</CardDescription>
+            <CardTitle className="text-base">Workspace policy only</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Callback hits this TAP. Vault→vault ≤ $25k and allowlisted ≤ $100k ALLOW → APPROVE.
-              One-time addresses BLOCK.
+              Bot-created transfers already passed workspace TAP. This desk does not re-check amount or destination.
             </p>
           </CardContent>
         </Card>
         <Card size="sm">
           <CardHeader>
-            <CardDescription>3. Human gate</CardDescription>
-            <CardTitle className="text-base">Policy edits wait</CardTitle>
+            <CardDescription>3. Callback</CardDescription>
+            <CardTitle className="text-base">Pass-through APPROVE</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Changing a threshold creates POLICY_APPROVAL. Live TAP does not change until an operator signs it.
+              POST /v2/tx_sign_request always returns APPROVE. Co-Signer then finishes the MPC signature.
             </p>
           </CardContent>
         </Card>
@@ -82,7 +81,7 @@ export function OverviewView({
         <StatCard
           label="Awaiting review"
           value={stats?.pending ?? "—"}
-          hint="Held by policy for an operator"
+          hint="Pass-through queue is empty by design"
         />
         <StatCard
           label="Auto-signed 24h"
@@ -108,9 +107,9 @@ export function OverviewView({
       <section className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
         <Card>
           <CardHeader className="border-b">
-            <CardTitle>Held for review</CardTitle>
+            <CardTitle>Recently signed</CardTitle>
             <CardDescription>
-              These callbacks returned RETRY. Decide them before Fireblocks exhausts retries.
+              Callbacks that returned APPROVE after Fireblocks TAP already authorized the bot.
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0">
@@ -118,9 +117,9 @@ export function OverviewView({
               <p className="px-4 py-10 text-sm text-muted-foreground">Loading queue…</p>
             ) : (
               <RequestTable
-                requests={pending}
-                emptyTitle="Nothing waiting"
-                emptyDescription="New callbacks that policy cannot auto-sign will appear here."
+                requests={signed}
+                emptyTitle="No signatures yet"
+                emptyDescription="When the Co-Signer posts a callback, pass-through APPROVE lands here."
               />
             )}
           </CardContent>

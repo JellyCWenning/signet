@@ -1,5 +1,4 @@
 import { normalizeCallback, parseCallbackBody } from "@/lib/callback";
-import { callbackFromTap, evaluateTap } from "@/lib/tap-engine";
 import {
   DEFAULT_POLICY,
   DEFAULT_SETTINGS,
@@ -64,7 +63,7 @@ function createState(now = Date.now()): CoSignState {
         id: "bot_hello",
         at: new Date(now - 60_000).toISOString(),
         direction: "out",
-        text: "Ops bot connected. I auto-approve transfers that match TAP and ping this chat when a request is held.",
+        text: "Ops bot connected. Fireblocks TAP already authorized this bot's transfers. The callback just returns APPROVE so the Co-Signer can sign.",
       },
     ],
   };
@@ -221,7 +220,7 @@ export function setBotConnected(connected: boolean): BotConnection {
   pushBot(
     "out",
     connected
-      ? "Ops bot reconnected. TAP auto-approve is live."
+      ? "Ops bot reconnected. Fireblocks TAP is the gate; callback pass-through APPROVE is live."
       : "Ops bot disconnected. Transfers still evaluate TAP; held items will not be pinged.",
   );
   return { ...state().bot };
@@ -234,18 +233,6 @@ function pushBot(direction: BotMessage["direction"], text: string) {
     direction,
     text,
   });
-}
-
-function notifyHold(request: SignRequest) {
-  if (state().bot.status !== "connected" || !state().bot.autoNotifyHolds) return;
-  const subject =
-    request.kind === "config_change"
-      ? request.extraInfo?.summary ?? request.configType
-      : `${request.amount ?? ""} ${request.assetId ?? ""} → ${request.destName ?? request.destType}`;
-  pushBot(
-    "out",
-    `HELD ${request.id}\n${subject}\nReply /approve ${request.id} or /reject ${request.id}`,
-  );
 }
 
 export function proposeRuleChange(
@@ -389,66 +376,36 @@ export function ingestCallback(
     };
   }
 
-  const evaluation = evaluateTap(incoming, state().rules);
   const request: SignRequest = {
     ...incoming,
-    status: "pending",
-    matchedRuleId: evaluation.rule?.id,
-    matchedRuleName: evaluation.rule?.name,
-    policyVerdict: evaluation.policyDecision,
+    status: "auto_approved",
+    decidedAt: incoming.createdAt,
+    decisionSource: "policy",
+    matchedRuleName: "Fireblocks TAP",
+    policyVerdict: "APPROVE",
   };
-
-  if (evaluation.verdict === "ALLOW") {
-    request.status = "auto_approved";
-    request.decidedAt = request.createdAt;
-    request.decisionSource = "policy";
-  } else if (evaluation.verdict === "BLOCK") {
-    request.status = "auto_rejected";
-    request.decidedAt = request.createdAt;
-    request.decisionSource = "policy";
-    request.rejectionReason =
-      evaluation.rule?.name ?? "Rejected by TAP";
-  }
 
   state().requests.unshift(request);
   record(
     request.id,
     "CALLBACK_RECEIVED",
     request.cosignerId,
-    `${kind} matched ${request.matchedRuleName ?? "default hold"}`,
+    `${kind} already passed Fireblocks TAP`,
   );
-
-  if (request.status === "auto_approved") {
-    record(
-      request.id,
-      "APPROVE",
-      `policy:${request.matchedRuleId}`,
-      `Auto-signed by ${request.matchedRuleName}`,
-    );
-    if (state().bot.status === "connected") {
-      pushBot(
-        "out",
-        `AUTO-APPROVE ${request.id} · ${request.matchedRuleName}`,
-      );
-    }
-  } else if (request.status === "auto_rejected") {
-    record(
-      request.id,
-      "REJECT",
-      `policy:${request.matchedRuleId}`,
-      request.rejectionReason ?? "Auto-rejected",
-    );
-    if (state().bot.status === "connected") {
-      pushBot(
-        "out",
-        `AUTO-REJECT ${request.id} · ${request.rejectionReason}`,
-      );
-    }
-  } else {
-    notifyHold(request);
+  record(
+    request.id,
+    "APPROVE",
+    "fireblocks-tap",
+    "Pass-through APPROVE — Fireblocks TAP already authorized this request",
+  );
+  if (state().bot.status === "connected") {
+    pushBot("out", `APPROVE ${request.id} · Fireblocks TAP pass-through`);
   }
 
-  return { response: callbackFromTap(request.id, evaluation, request.rejectionReason), request: snapshotRequest(request) };
+  return {
+    response: { action: "APPROVE", requestId: request.id },
+    request: snapshotRequest(request),
+  };
 }
 
 export function decideRequest(

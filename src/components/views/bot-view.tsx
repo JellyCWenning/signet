@@ -95,15 +95,14 @@ export function BotView({
       <PageHeader
         eyebrow="API Co-Signer"
         title="Bots"
-        description="Pair a Fireblocks API user (bot) to a Co-Signer and turn on the callback. The handler evaluates our TAP: ALLOW returns APPROVE. Held transfers can also be decided from the ops chat bot."
+        description="Pair a Fireblocks API user (bot) to a Co-Signer. Workspace TAP already filtered the transfer. Callback returns APPROVE so the enclave can sign."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Fireblocks API bots</CardTitle>
           <CardDescription>
-            The Co-Signer only auto-signs for a paired Signer bot with callback enabled. Callback
-            URL is this app origin; Fireblocks appends /v2/tx_sign_request.
+            The Co-Signer signs for a paired Signer bot. Callback is optional: on, it POSTs here and we return APPROVE; off, it signs without asking.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

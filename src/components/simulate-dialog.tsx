@@ -55,8 +55,8 @@ export function SimulateDialog() {
         <DialogHeader>
           <DialogTitle>Simulate a Co-Signer callback</DialogTitle>
           <DialogDescription>
-            Posts a Fireblocks-shaped payload to the callback handler so you can
-            watch policy auto-sign, auto-reject, or hold for review.
+            Posts a Fireblocks-shaped payload to the callback handler. The handler
+            returns APPROVE because workspace TAP already authorized the bot.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
