@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useJson } from "@/hooks/use-json";
-import type { DashboardStats } from "@/lib/types";
 import { SimulateDialog } from "@/components/simulate-dialog";
 
 const NAV = [
@@ -28,9 +27,24 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  initialPending = 0,
+}: {
+  children: React.ReactNode;
+  initialPending?: number;
+}) {
   const pathname = usePathname();
-  const { data } = useJson<{ stats: DashboardStats }>("/api/workspace", 4000);
+  const { data } = useJson("/api/workspace", 4000, {
+    stats: {
+      pending: initialPending,
+      autoSigned24h: 0,
+      rejected24h: 0,
+      reviewed24h: 0,
+      onlineCosigners: 0,
+      totalCosigners: 0,
+    },
+  });
 
   return (
     <div className="flex min-h-full flex-1 bg-background">
