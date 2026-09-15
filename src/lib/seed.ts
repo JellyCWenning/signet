@@ -108,6 +108,15 @@ export const DEFAULT_POLICY: PolicyRule[] = [
   },
 ];
 
+function whitelistProposal(maxUsd: number) {
+  const current = structuredClone(
+    DEFAULT_POLICY.find((rule) => rule.id === "auto-whitelist")!,
+  );
+  const proposed = structuredClone(current);
+  proposed.match.maxUsd = maxUsd;
+  return { ruleId: current.id, current, proposed };
+}
+
 export function defaultApiUsers(): ApiUser[] {
   return [
     {
@@ -277,6 +286,7 @@ export function defaultRequests(now: number): SignRequest[] {
       extraInfo: {
         summary: "Raise Coinbase Prime auto-sign ceiling from $100k to $250k",
         submittedBy: "treasury-lead@northstar",
+        ...whitelistProposal(250_000),
       },
       signerId: "api_approver_ops",
       cosignerId: "cosigner-sgx-dr-1",
@@ -536,6 +546,7 @@ export const SIMULATE_PRESETS: SimulatePreset[] = [
       extraInfo: {
         summary: "Raise Kraken auto-sign ceiling from $100k to $150k",
         submittedBy: "treasury-lead@northstar",
+        ...whitelistProposal(150_000),
       },
       signerId: "api_approver_ops",
       players: ["cosigner-sgx-dr-1"],
