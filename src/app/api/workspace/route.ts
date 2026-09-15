@@ -28,7 +28,6 @@ export async function POST(request: Request) {
     action?: string;
     userId?: string;
     cosignerId?: string | null;
-    callbackEnabled?: boolean;
   };
   if (body.action === "reset") {
     resetStore();
@@ -39,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
     }
     try {
-      pairApiUser(body.userId, body.cosignerId ?? null, body.callbackEnabled);
+      pairApiUser(body.userId, body.cosignerId ?? null);
       return NextResponse.json(snapshot());
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to pair";

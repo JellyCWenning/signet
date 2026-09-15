@@ -90,11 +90,8 @@ export function RequestDetailView({
           <CardHeader className="border-b">
             <CardTitle>Request</CardTitle>
             <CardDescription>
-              Fields the API Co-Signer posts to{" "}
-              {data.kind === "config_change"
-                ? "/v2/config_change_sign_request"
-                : "/v2/tx_sign_request"}
-              .
+              Fields on a TAP-allowed {data.kind === "config_change" ? "config" : "signing"} request.
+              Callback is off — the Co-Signer does not POST this desk.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -128,7 +125,7 @@ export function RequestDetailView({
             <CardHeader className="border-b">
             <CardTitle>Policy</CardTitle>
             <CardDescription>
-              Fireblocks workspace TAP already authorized this request. Callback is pass-through.
+              Fireblocks workspace TAP already authorized this request. The enclave signed without a callback.
             </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -150,8 +147,8 @@ export function RequestDetailView({
               <CardTitle>Co-sign</CardTitle>
               <CardDescription>
                 {pending
-                  ? "The callback is returning RETRY until you decide. Fireblocks retries the same requestId."
-                  : "This request already has a terminal callback action."}
+                  ? "2-TIER TAP still needs a human in the Fireblocks Console — not this desk."
+                  : "TAP already decided. Callback is off."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

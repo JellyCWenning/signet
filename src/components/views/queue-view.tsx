@@ -34,7 +34,7 @@ export function QueueView({ initial }: { initial: SignRequest[] }) {
       <PageHeader
         eyebrow="Queue"
         title="Signing and approval requests"
-        description="Every callback the Co-Signer posted. Signing requests pass through APPROVE because Fireblocks TAP already authorized the bot."
+        description="TAP-allowed signatures from the Co-Signer. Callback is off, so live signing no longer posts here."
       />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

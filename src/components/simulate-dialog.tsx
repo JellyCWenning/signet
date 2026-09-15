@@ -33,7 +33,7 @@ export function SimulateDialog() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Simulate failed");
       const action = body.response?.action as string;
-      toast.success(`Callback returned ${action}`, {
+      toast.success(`TAP-allowed demo recorded as ${action}`, {
         description: body.request?.id,
       });
       setOpen(false);
@@ -49,14 +49,14 @@ export function SimulateDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="outline" />}>
-        Simulate callback
+        Simulate TAP-allowed tx
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Simulate a Co-Signer callback</DialogTitle>
+          <DialogTitle>Simulate a TAP-allowed transfer</DialogTitle>
           <DialogDescription>
-            Posts a Fireblocks-shaped payload to the callback handler. The handler
-            returns APPROVE because workspace TAP already authorized the bot.
+            Local demo only. Live Co-Signer callback is off; this injects a request
+            that already passed Fireblocks TAP so you can inspect the queue.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
@@ -81,7 +81,7 @@ export function SimulateDialog() {
         </div>
         <DialogFooter>
           <Button type="button" onClick={run} disabled={busy}>
-            {busy ? "Posting…" : "Send to callback handler"}
+            {busy ? "Posting…" : "Record TAP-allowed tx"}
           </Button>
         </DialogFooter>
       </DialogContent>

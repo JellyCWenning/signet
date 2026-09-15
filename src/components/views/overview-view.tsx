@@ -33,7 +33,7 @@ export function OverviewView({
       <PageHeader
         eyebrow="Workspace"
         title="Co-sign desk"
-        description="Pair an API bot to the Co-Signer. Fireblocks TAP is the only policy. The callback pass-through returns APPROVE so the enclave can sign."
+        description="Pair an API bot to the Co-Signer. Fireblocks TAP is the only policy. Callback is off — the enclave signs what TAP already allowed."
         actions={
           <Button nativeButton={false} render={<Link href="/queue" />}>
             Open queue
@@ -49,7 +49,7 @@ export function OverviewView({
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              treasury-bot is paired to nitro-prod-1 with callback on /v2/tx_sign_request.
+              treasury-bot is paired to nitro-prod-1. Callback is off.
             </p>
           </CardContent>
         </Card>
@@ -66,12 +66,12 @@ export function OverviewView({
         </Card>
         <Card size="sm">
           <CardHeader>
-            <CardDescription>3. Callback</CardDescription>
-            <CardTitle className="text-base">Pass-through APPROVE</CardTitle>
+            <CardDescription>3. Co-Signer</CardDescription>
+            <CardTitle className="text-base">Enclave signs</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              POST /v2/tx_sign_request always returns APPROVE. Co-Signer then finishes the MPC signature.
+              No callback round-trip. The Co-Signer uses its enclave key share as soon as TAP has allowed the tx.
             </p>
           </CardContent>
         </Card>
@@ -81,12 +81,12 @@ export function OverviewView({
         <StatCard
           label="Awaiting review"
           value={stats?.pending ?? "—"}
-          hint="Pass-through queue is empty by design"
+          hint="Nothing waits here; TAP holds live in Console"
         />
         <StatCard
           label="Auto-signed 24h"
           value={stats?.autoSigned24h ?? "—"}
-          hint="Callback returned APPROVE"
+          hint="Enclave signed after TAP ALLOW"
         />
         <StatCard
           label="Rejected 24h"
@@ -109,7 +109,7 @@ export function OverviewView({
           <CardHeader className="border-b">
             <CardTitle>Recently signed</CardTitle>
             <CardDescription>
-              Callbacks that returned APPROVE after Fireblocks TAP already authorized the bot.
+              Transfers the Co-Signer already signed after Fireblocks TAP allowed them.
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0">
@@ -119,7 +119,7 @@ export function OverviewView({
               <RequestTable
                 requests={signed}
                 emptyTitle="No signatures yet"
-                emptyDescription="When the Co-Signer posts a callback, pass-through APPROVE lands here."
+                emptyDescription="TAP-allowed signatures from the paired Co-Signer land here."
               />
             )}
           </CardContent>
@@ -141,8 +141,7 @@ export function OverviewView({
                     {enclaveLabel(cosigner.enclave)} · {cosigner.region}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {cosigner.pairedApiUser} · {cosigner.role}
-                    {cosigner.callbackConfigured ? " · callback on" : " · no callback"}
+                    {cosigner.pairedApiUser} · {cosigner.role} · callback off
                   </p>
                 </div>
                 <div className="text-right">

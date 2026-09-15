@@ -23,7 +23,7 @@ export function AuditView({ initial }: { initial: AuditEvent[] }) {
       <PageHeader
         eyebrow="Workspace"
         title="Audit log"
-        description="Every callback, policy verdict, and operator decision is recorded with the actor that produced it."
+        description="Pairing, TAP-allowed signatures, and operator actions for this demo workspace."
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {loading && !data ? (

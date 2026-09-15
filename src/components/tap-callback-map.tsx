@@ -3,18 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const ROWS = [
   {
     tap: "ALLOW",
-    callback: "APPROVE",
-    meaning: "TAP passed. Callback returns APPROVE and the Co-Signer signs.",
+    meaning: "TAP passed. Co-Signer signs in the enclave. No callback.",
   },
   {
     tap: "BLOCK",
-    callback: "REJECT",
-    meaning: "TAP denied. Callback returns REJECT and the transaction fails.",
+    meaning: "TAP denied. The transaction never reaches the Co-Signer.",
   },
   {
     tap: "2-TIER",
-    callback: "RETRY",
-    meaning: "No auto-pass. Callback returns RETRY until an operator or the ops bot decides.",
+    meaning: "Human review in the Fireblocks Console / mobile app — not this desk.",
   },
 ] as const;
 
@@ -22,18 +19,15 @@ export function TapCallbackMap() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Callback → this TAP</CardTitle>
+        <CardTitle>Fireblocks TAP</CardTitle>
         <CardDescription>
-          The Fireblocks API Co-Signer posts to /v2/tx_sign_request. This service evaluates the
-          live TAP below — not Fireblocks workspace TAP. First matching enabled rule wins.
+          Workspace TAP is the only policy. Callback is off, so ALLOW goes straight to the enclave.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-3">
         {ROWS.map((row) => (
           <div key={row.tap} className="rounded-lg border border-border/80 p-3">
-            <p className="font-mono text-xs text-muted-foreground">
-              TAP {row.tap} → {row.callback}
-            </p>
+            <p className="font-mono text-xs text-muted-foreground">TAP {row.tap}</p>
             <p className="mt-1 text-sm">{row.meaning}</p>
           </div>
         ))}

@@ -42,36 +42,30 @@ export function SettingsView({
     <div className="space-y-6">
       <PageHeader
         eyebrow="Workspace"
-        title="Callback handler settings"
-        description="Co-Signer callback URL is this origin. Fireblocks TAP is the only policy. This handler returns APPROVE."
+        title="Co-Signer settings"
+        description="Callback is off. Pair the bot to the Co-Signer; Fireblocks TAP is the only policy. The enclave signs without posting here."
       />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Endpoints</CardTitle>
+            <CardTitle>Callback</CardTitle>
             <CardDescription>
-              Point an API Co-Signer callback URL at this app. Fireblocks appends these paths:
+              Do not set a callback URL on the Co-Signer. TAP-allowed requests are signed in the enclave immediately.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <Endpoint
-              method="POST"
-              path="/v2/tx_sign_request"
-              detail="Pass-through APPROVE. Fireblocks TAP already authorized the bot's transfer."
-            />
-            <Endpoint
-              method="POST"
-              path="/v2/config_change_sign_request"
-              detail="Same pass-through APPROVE for configuration signing requests."
-            />
-            <p className="text-xs text-muted-foreground">
-              Auth mode: {data?.settings.callbackAuth === "jwt" ? "JWT (RS256)" : "JSON (demo)"}.
-              Production handlers should verify the Co-Signer JWT and sign the response. This
-              workspace accepts JSON so you can run it without secrets.
+            <p className="text-sm text-muted-foreground">
+              Fireblocks docs: if no Callback Handler is configured for a paired API user, the
+              Co-Signer automatically signs or approves every request it receives for that user.
             </p>
             <p className="text-xs text-muted-foreground">
-              Operator acting on holds: {data?.settings.operatorName}
+              On the Co-Signer host: skip callback during <code className="font-mono text-teal-300">add-user</code>,
+              or leave the callback URL empty. This desk does not need{" "}
+              <code className="font-mono">/v2/tx_sign_request</code>.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Operator: {data?.settings.operatorName}
             </p>
           </CardContent>
         </Card>
@@ -96,8 +90,8 @@ export function SettingsView({
         <CardHeader>
           <CardTitle>Paired Co-Signers</CardTitle>
           <CardDescription>
-            Each Co-Signer hosts an MPC key share in an enclave and calls this handler before it
-            participates in a signature.
+            Each Co-Signer holds an MPC key share inside an enclave (SGX, Nitro, or Confidential Space).
+            With callback off, TAP-allowed txs are signed there without a round-trip to this app.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
@@ -113,32 +107,11 @@ export function SettingsView({
               <p className="text-xs text-muted-foreground">
                 {cosigner.pairedApiUser} · {cosigner.role}
               </p>
-              <p className="text-xs text-muted-foreground">
-                Callback {cosigner.callbackConfigured ? "configured" : "not configured"}
-              </p>
+              <p className="text-xs text-muted-foreground">callback off</p>
             </div>
           ))}
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function Endpoint({
-  method,
-  path,
-  detail,
-}: {
-  method: string;
-  path: string;
-  detail: string;
-}) {
-  return (
-    <div>
-      <p className="font-mono text-xs">
-        <span className="text-teal-300">{method}</span> {path}
-      </p>
-      <p className="text-xs text-muted-foreground">{detail}</p>
     </div>
   );
 }

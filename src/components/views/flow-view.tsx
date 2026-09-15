@@ -8,15 +8,29 @@ export function FlowView() {
       <PageHeader
         eyebrow="End to end"
         title="从发出信号到完成 Sign"
-        description="策略只走 Fireblocks TAP。Bot 发出的交易已经过关，callback 透传 APPROVE，Co-Signer 签字完成。"
+        description="Callback 已关闭。策略只走 Fireblocks TAP。过关后 Co-Signer 在 enclave 里直接签字。"
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Enclave 是什么</CardTitle>
+          <CardDescription>不是另一套 TAP，是 Co-Signer 放私钥分片的隔离环境。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            Fireblocks 用 MPC：云端一份密钥分片，客户这边一份。客户这份跑在受硬件保护的隔离区里，叫
+            enclave（Intel SGX、AWS Nitro、GCP Confidential Space）。里面的代码能签名，但私钥分片拿不出来。
+          </p>
+          <p>
+            关掉 callback 之后，enclave 收到「请签字」就签，不再问本服务。拦交易的仍然是 Fireblocks TAP。
+          </p>
+        </CardContent>
+      </Card>
 
       <Card className="border-teal-400/25">
         <CardHeader>
           <CardTitle>全流程</CardTitle>
-          <CardDescription>
-            没有第二套 TAP。过不了 Fireblocks TAP 的请求到不了 Co-Signer。
-          </CardDescription>
+          <CardDescription>没有本地 TAP，也没有 callback 往返。</CardDescription>
         </CardHeader>
         <CardContent>
           <ol className="space-y-0">
@@ -41,9 +55,6 @@ export function FlowView() {
                   </p>
                   <p className="text-sm font-medium">{stage.title}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{stage.detail}</p>
-                  {stage.code ? (
-                    <p className="mt-1 font-mono text-[11px] text-teal-300">{stage.code}</p>
-                  ) : null}
                 </div>
               </li>
             ))}
@@ -60,48 +71,34 @@ const STAGES = [
     lane: "发出信号",
     title: "API Bot 发起转账",
     detail: "treasury-bot 在 Fireblocks 创建 TRANSFER / CONTRACT_CALL。",
-    code: "create transaction · signer = 配对的 API user",
     accent: false,
   },
   {
     n: "2",
     lane: "Fireblocks TAP",
     title: "工作区 TAP 过滤（唯一策略）",
-    detail:
-      "来源、目的地、资产、金额、ALLOW / BLOCK / 2-TIER 都在这里。过不了的交易到不了 Co-Signer。",
-    code: "workspace TAP · first match wins",
+    detail: "来源、目的地、资产、金额、ALLOW / BLOCK / 2-TIER。过不了的交易到不了 Co-Signer。",
     accent: true,
   },
   {
     n: "3",
     lane: "Fireblocks 云",
     title: "云端 MPC 分片准备签名",
-    detail: "只有 TAP 放行的交易才会请 API Co-Signer 出 enclave 分片。",
+    detail: "只有 TAP 放行的交易才会请 API Co-Signer。",
     accent: false,
   },
   {
     n: "4",
-    lane: "API Co-Signer",
-    title: "Enclave 收到待签请求",
-    detail: "若开了 callback，先 POST 本服务；关掉 callback 则直接签。",
-    code: "callback URL = 本服务 origin",
-    accent: false,
-  },
-  {
-    n: "5",
-    lane: "Callback（可选）",
-    title: "一律 APPROVE",
-    detail:
-      "不再跑本地 TAP。请求能到这里，说明 Fireblocks TAP 已经授权。回 APPROVE 让 Co-Signer 继续。",
-    code: 'POST /v2/tx_sign_request → { "action": "APPROVE" }',
+    lane: "API Co-Signer · Enclave",
+    title: "隔离环境里直接签字",
+    detail: "Callback 已关。Enclave 收到请求就用自己那份密钥分片参与 MPC。",
     accent: true,
   },
   {
-    n: "6",
+    n: "5",
     lane: "完成 Sign",
-    title: "enclave 分片 + 云端分片 → 完整签名",
-    detail: "MPC 合成后 Fireblocks 广播交易，sign 完成。",
-    code: "enclave share + cloud share → signed tx",
+    title: "两份分片合成完整签名并广播",
+    detail: "云端分片 + enclave 分片 → signed tx。",
     accent: true,
   },
 ];

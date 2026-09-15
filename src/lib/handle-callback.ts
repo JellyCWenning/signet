@@ -13,7 +13,7 @@ async function handle(kind: "tx_sign" | "config_change", request: Request) {
       const text = await request.text();
       raw = text;
     }
-    // Fireblocks TAP already authorized this request. Pass-through APPROVE.
+    // Demo ingest only. Live Co-Signer callback is off; TAP already authorized.
     const { response } = ingestCallback(kind, raw);
     return NextResponse.json(response);
   } catch (error) {

@@ -37,11 +37,11 @@ export function BotView({
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function pair(userId: string, cosignerId: string | null, callbackEnabled?: boolean) {
+  async function pair(userId: string, cosignerId: string | null) {
     const response = await fetch("/api/workspace", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "pair", userId, cosignerId, callbackEnabled }),
+      body: JSON.stringify({ action: "pair", userId, cosignerId }),
     });
     const body = await response.json();
     if (!response.ok) {
@@ -95,26 +95,26 @@ export function BotView({
       <PageHeader
         eyebrow="API Co-Signer"
         title="Bots"
-        description="Pair a Fireblocks API user (bot) to a Co-Signer. Workspace TAP already filtered the transfer. Callback returns APPROVE so the enclave can sign."
+        description="Pair a Fireblocks API user (bot) to a Co-Signer. Workspace TAP is the gate. Callback is off so the enclave signs without asking this app."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Fireblocks API bots</CardTitle>
           <CardDescription>
-            The Co-Signer signs for a paired Signer bot. Callback is optional: on, it POSTs here and we return APPROVE; off, it signs without asking.
+            Pair a Signer bot to a Co-Signer. Callback is off: the enclave signs TAP-allowed transfers without posting here.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {(workspace.data?.apiUsers ?? []).map((user) => (
             <div
               key={user.id}
-              className="grid gap-3 rounded-lg border border-border/80 p-3 lg:grid-cols-[1.2fr_1fr_auto] lg:items-center"
+              className="grid gap-3 rounded-lg border border-border/80 p-3 lg:grid-cols-[1.2fr_1fr] lg:items-center"
             >
               <div>
                 <p className="font-medium">{user.displayName}</p>
                 <p className="font-mono text-xs text-muted-foreground">
-                  {user.id} · {user.role}
+                  {user.id} · {user.role} · callback off
                 </p>
               </div>
               <Select
@@ -135,16 +135,6 @@ export function BotView({
                   ))}
                 </SelectContent>
               </Select>
-              <label className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                Callback
-                <Switch
-                  checked={user.callbackEnabled}
-                  disabled={!user.pairedCosignerId}
-                  onCheckedChange={(checked) =>
-                    void pair(user.id, user.pairedCosignerId, checked)
-                  }
-                />
-              </label>
             </div>
           ))}
           <div className="grid gap-3 md:grid-cols-3">
@@ -171,7 +161,7 @@ export function BotView({
           <div>
             <CardTitle>{bot?.name ?? "Ops chat bot"}</CardTitle>
             <CardDescription>
-              Telegram-style command channel for held TAP matches. POST /api/bot
+              Operator chat for pairing status. TAP lives in Fireblocks; this bot does not approve signatures.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">

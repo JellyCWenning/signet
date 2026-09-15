@@ -63,7 +63,7 @@ function createState(now = Date.now()): CoSignState {
         id: "bot_hello",
         at: new Date(now - 60_000).toISOString(),
         direction: "out",
-        text: "Ops bot connected. Fireblocks TAP already authorized this bot's transfers. The callback just returns APPROVE so the Co-Signer can sign.",
+        text: "Ops bot connected. Callback is off. Fireblocks TAP is the only gate; the Co-Signer signs in its enclave.",
       },
     ],
   };
@@ -150,11 +150,7 @@ export function listPendingPolicyApprovals(): SignRequest[] {
     .map(snapshotRequest);
 }
 
-export function pairApiUser(
-  userId: string,
-  cosignerId: string | null,
-  callbackEnabled?: boolean,
-): ApiUser {
+export function pairApiUser(userId: string, cosignerId: string | null): ApiUser {
   const user = state().apiUsers.find((item) => item.id === userId);
   if (!user) throw new Error("API user not found");
   if (user.pairedCosignerId) {
@@ -165,12 +161,12 @@ export function pairApiUser(
     }
   }
   user.pairedCosignerId = cosignerId;
-  if (callbackEnabled != null) user.callbackEnabled = callbackEnabled;
+  user.callbackEnabled = false;
   if (cosignerId) {
     const cosigner = state().cosigners.find((item) => item.id === cosignerId);
     if (!cosigner) throw new Error("Co-signer not found");
     cosigner.pairedApiUser = user.id;
-    cosigner.callbackConfigured = user.callbackEnabled;
+    cosigner.callbackConfigured = false;
   }
   record(
     "pairing",
@@ -220,7 +216,7 @@ export function setBotConnected(connected: boolean): BotConnection {
   pushBot(
     "out",
     connected
-      ? "Ops bot reconnected. Fireblocks TAP is the gate; callback pass-through APPROVE is live."
+      ? "Ops bot reconnected. Callback off. Fireblocks TAP is the gate."
       : "Ops bot disconnected. Transfers still evaluate TAP; held items will not be pinged.",
   );
   return { ...state().bot };
@@ -396,10 +392,10 @@ export function ingestCallback(
     request.id,
     "APPROVE",
     "fireblocks-tap",
-    "Pass-through APPROVE — Fireblocks TAP already authorized this request",
+    "TAP ALLOW — Co-Signer signed in enclave (callback off)",
   );
   if (state().bot.status === "connected") {
-    pushBot("out", `APPROVE ${request.id} · Fireblocks TAP pass-through`);
+    pushBot("out", `Signed ${request.id} · Fireblocks TAP ALLOW · enclave`);
   }
 
   return {

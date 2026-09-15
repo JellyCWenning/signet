@@ -53,7 +53,7 @@ export function AppShell({
       <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         <Brand />
         <Nav pathname={pathname} pending={data?.stats.pending ?? 0} />
-        <WorkspaceFoot pending={data?.stats.pending ?? 0} />
+        <WorkspaceFoot />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3 lg:px-8">
@@ -74,7 +74,7 @@ export function AppShell({
             <span className="text-sm font-medium">Fireblocks Co-Sign</span>
           </div>
           <p className="hidden text-sm text-muted-foreground lg:block">
-            Callback handler · Fireblocks TAP · pass-through APPROVE
+            Co-Signer · Fireblocks TAP · callback off
           </p>
           <SimulateDialog />
         </header>
@@ -132,14 +132,14 @@ function Nav({ pathname, pending }: { pathname: string; pending: number }) {
   );
 }
 
-function WorkspaceFoot({ pending }: { pending: number }) {
+function WorkspaceFoot() {
   return (
     <div className="border-t border-sidebar-border px-4 py-4 text-xs text-muted-foreground">
       <p className="flex items-center gap-1.5">
         <span className="size-1.5 rounded-full bg-teal-400" />
         nitro-prod-1 online
       </p>
-      <p className="mt-1">{pending} held for review</p>
+      <p className="mt-1">callback off · TAP in Fireblocks</p>
     </div>
   );
 }
