@@ -1,28 +1,50 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import { useJson } from "@/hooks/use-json";
-import { formatUsd } from "@/lib/format";
-import type { PolicyRule, SignRequest } from "@/lib/types";
+import { amountLabel, assetLabel, destLabel, sourceLabel, tapAction, typeLabel } from "@/lib/tap";
+import { cn } from "@/lib/utils";
+import type { PolicyDecision, PolicyRule, SignRequest } from "@/lib/types";
 
 export default function PolicyPage() {
-  const router = useRouter();
-  const { data, error, loading, reload } = useJson<PolicyRule[]>("/api/policy");
+  const { data, error, loading, reload } = useJson<{
+    rules: PolicyRule[];
+    pending: SignRequest[];
+  }>("/api/policy");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [newName, setNewName] = useState("Allowlisted CEX under ceiling");
+  const [newDest, setNewDest] = useState("EXCHANGE");
+  const [newMax, setNewMax] = useState("50000");
+  const [newDecision, setNewDecision] = useState<PolicyDecision>("APPROVE");
 
-  async function propose(
-    rule: PolicyRule,
-    patch: { enabled?: boolean; maxUsd?: number | null },
-  ) {
+  const rules = data?.rules ?? [];
+  const pending = data?.pending ?? [];
+
+  async function propose(rule: PolicyRule, patch: { enabled?: boolean; maxUsd?: number | null }) {
     setBusy(rule.id);
     try {
       const response = await fetch("/api/policy", {
@@ -31,12 +53,38 @@ export default function PolicyPage() {
         body: JSON.stringify({ id: rule.id, ...patch }),
       });
       const body = (await response.json()) as SignRequest & { error?: string };
-      if (!response.ok) throw new Error(body.error ?? "Unable to submit policy change");
-      toast.success("Submitted for human approval", { description: body.id });
+      if (!response.ok) throw new Error(body.error ?? "Unable to submit TAP change");
+      toast.success("Waiting on human approval", { description: body.id });
       await reload();
-      router.push(`/queue/${body.id}`);
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Unable to submit");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function addRule() {
+    setBusy("new");
+    try {
+      const maxUsd = newMax === "" ? null : Number(newMax);
+      if (maxUsd != null && Number.isNaN(maxUsd)) throw new Error("Enter a valid USD ceiling");
+      const response = await fetch("/api/policy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: newName,
+          destType: newDest,
+          maxUsd,
+          decision: newDecision,
+          designatedSigner: "api_signer_treasury",
+        }),
+      });
+      const body = (await response.json()) as SignRequest & { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "Unable to add TAP rule");
+      toast.success("New TAP rule submitted for approval", { description: body.id });
+      await reload();
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Unable to add TAP rule");
     } finally {
       setBusy(null);
     }
@@ -46,106 +94,183 @@ export default function PolicyPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Transaction Authorization Policy"
-        title="Callback policy"
-        description="Live TAP decides whether the Co-Signer auto-approves a Fireblocks transfer. Editing a threshold or toggling a rule does not take effect until an operator approves the POLICY_APPROVAL request."
+        title="TAP"
+        description="Rules run top to bottom. The first match decides whether the paired API bot auto-signs (ALLOW), blocks, or holds for 2-tier review. Changing a threshold or rule creates a POLICY_APPROVAL — live TAP does not change until a human approves it."
       />
+
+      {pending.length > 0 ? (
+        <Card className="border-amber-400/30">
+          <CardHeader>
+            <CardTitle>Pending human approval</CardTitle>
+            <CardDescription>
+              These TAP edits are drafts. The Co-Signer still evaluates the live rules below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {pending.map((request) => (
+              <div key={request.id} className="flex items-center justify-between gap-3 text-sm">
+                <p>
+                  <span className="font-mono text-xs text-muted-foreground">{request.id}</span>
+                  <span className="ml-2">{String(request.extraInfo?.summary ?? "TAP change")}</span>
+                </p>
+                <Button size="sm" nativeButton={false} render={<Link href={`/queue/${request.id}`} />}>
+                  Review
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {loading && !data ? (
-        <p className="text-sm text-muted-foreground">Loading policy…</p>
+        <p className="text-sm text-muted-foreground">Loading TAP…</p>
       ) : (
-        <div className="grid gap-3">
-          {(data ?? []).map((rule) => {
-            const draft = drafts[rule.id] ?? String(rule.match.maxUsd ?? "");
-            return (
-              <Card key={rule.id}>
-                <CardHeader className="flex flex-row items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <CardTitle>{rule.name}</CardTitle>
-                      <Badge variant="outline">P{rule.priority}</Badge>
-                      <Badge
-                        variant="outline"
-                        className={
-                          rule.decision === "APPROVE"
-                            ? "border-teal-400/30 text-teal-200"
-                            : rule.decision === "REJECT"
-                              ? "border-red-400/30 text-red-200"
-                              : "border-amber-400/30 text-amber-200"
-                        }
-                      >
-                        {rule.decision}
-                      </Badge>
-                      {!rule.enabled ? (
-                        <Badge variant="outline">Disabled</Badge>
-                      ) : null}
-                    </div>
-                    <CardDescription>{rule.description}</CardDescription>
-                  </div>
-                  <Switch
-                    checked={rule.enabled}
-                    disabled={busy === rule.id}
-                    onCheckedChange={(checked) => void propose(rule, { enabled: checked })}
-                    aria-label={`Propose ${rule.enabled ? "disabling" : "enabling"} ${rule.name}`}
-                  />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    Signer {rule.designatedSigner}
-                    {matchSummary(rule)}
-                  </p>
-                  {rule.match.maxUsd != null || rule.decision === "APPROVE" ? (
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <label className="text-xs text-muted-foreground whitespace-nowrap">
-                        Auto-sign ceiling (USD)
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={draft}
-                        onChange={(event) =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [rule.id]: event.target.value,
-                          }))
-                        }
-                        className="sm:max-w-40"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy === rule.id}
-                        onClick={() => {
-                          const value = draft === "" ? null : Number(draft);
-                          if (value != null && Number.isNaN(value)) {
-                            toast.error("Enter a number");
-                            return;
+        <Card>
+          <CardHeader>
+            <CardTitle>Live rules</CardTitle>
+            <CardDescription>
+              Initiator is the API bot paired to the Co-Signer. Amount is USD / single transaction.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Destination</TableHead>
+                  <TableHead>Asset</TableHead>
+                  <TableHead>Threshold</TableHead>
+                  <TableHead>Action</TableHead>
+                  <TableHead>Designated signer</TableHead>
+                  <TableHead className="text-right">On</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rules.map((rule) => {
+                  const action = tapAction(rule.decision);
+                  const draft = drafts[rule.id] ?? String(rule.match.maxUsd ?? "");
+                  return (
+                    <TableRow key={rule.id} className={cn(!rule.enabled && "opacity-50")}>
+                      <TableCell className="font-mono text-xs">{rule.priority}</TableCell>
+                      <TableCell>{typeLabel(rule)}</TableCell>
+                      <TableCell>{sourceLabel(rule)}</TableCell>
+                      <TableCell>{destLabel(rule)}</TableCell>
+                      <TableCell>{assetLabel(rule)}</TableCell>
+                      <TableCell>
+                        {rule.decision === "APPROVE" || rule.match.maxUsd != null ? (
+                          <div className="flex min-w-40 items-center gap-1.5">
+                            <Input
+                              type="number"
+                              min={0}
+                              value={draft}
+                              className="h-7 w-24"
+                              onChange={(event) =>
+                                setDrafts((current) => ({
+                                  ...current,
+                                  [rule.id]: event.target.value,
+                                }))
+                              }
+                            />
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              disabled={busy === rule.id}
+                              onClick={() => {
+                                const value = draft === "" ? null : Number(draft);
+                                if (value != null && Number.isNaN(value)) {
+                                  toast.error("Enter a number");
+                                  return;
+                                }
+                                void propose(rule, { maxUsd: value });
+                              }}
+                            >
+                              Save
+                            </Button>
+                          </div>
+                        ) : (
+                          amountLabel(rule)
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={
+                            action === "ALLOW"
+                              ? "border-teal-400/30 text-teal-200"
+                              : action === "BLOCK"
+                                ? "border-red-400/30 text-red-200"
+                                : "border-amber-400/30 text-amber-200"
                           }
-                          void propose(rule, { maxUsd: value });
-                        }}
-                      >
-                        Submit threshold
-                      </Button>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                        >
+                          {action}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{rule.designatedSigner}</TableCell>
+                      <TableCell className="text-right">
+                        <Switch
+                          checked={rule.enabled}
+                          disabled={busy === rule.id}
+                          onCheckedChange={(checked) => void propose(rule, { enabled: checked })}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Add TAP rule</CardTitle>
+          <CardDescription>
+            The new rule is a draft until an operator approves the POLICY_APPROVAL request.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Input value={newName} onChange={(event) => setNewName(event.target.value)} />
+          <Select value={newDest} onValueChange={(value) => setNewDest(String(value))}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="VAULT">Vault</SelectItem>
+              <SelectItem value="EXCHANGE">Exchange</SelectItem>
+              <SelectItem value="UNMANAGED">Unmanaged / allowlisted</SelectItem>
+              <SelectItem value="ONE_TIME">One-time address</SelectItem>
+              <SelectItem value="*">Any destination</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="number"
+            min={0}
+            value={newMax}
+            onChange={(event) => setNewMax(event.target.value)}
+            placeholder="USD ceiling"
+          />
+          <Select
+            value={newDecision}
+            onValueChange={(value) => setNewDecision(value as PolicyDecision)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="APPROVE">ALLOW (auto-sign)</SelectItem>
+              <SelectItem value="REJECT">BLOCK</SelectItem>
+              <SelectItem value="REVIEW">2-TIER (hold)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => void addRule()} disabled={busy === "new"}>
+            Submit for approval
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
-}
-
-function matchSummary(rule: PolicyRule): string {
-  const parts: string[] = [];
-  const { match } = rule;
-  if (match.kinds?.length) parts.push(match.kinds.join(", "));
-  if (match.operations?.length) parts.push(match.operations.join(", "));
-  if (match.dstTypes?.length) parts.push(match.dstTypes.join(", "));
-  if (match.configTypes?.length) parts.push(match.configTypes.join(", "));
-  if (match.maxUsd != null) parts.push(`≤ ${formatUsd(match.maxUsd)}`);
-  if (match.minUsd != null) parts.push(`≥ ${formatUsd(match.minUsd)}`);
-  return parts.length ? ` · ${parts.join(" · ")}` : "";
 }

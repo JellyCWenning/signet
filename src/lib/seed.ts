@@ -1,4 +1,4 @@
-import type { Cosigner, PolicyRule, SignRequest, WorkspaceSettings } from "@/lib/types";
+import type { ApiUser, Cosigner, PolicyRule, SignRequest, WorkspaceSettings } from "@/lib/types";
 
 const minutesAgo = (minutes: number, now: number) =>
   new Date(now - minutes * 60_000).toISOString();
@@ -17,7 +17,7 @@ export const DEFAULT_POLICY: PolicyRule[] = [
       "Reject transfers to one-time addresses unless they are first allowlisted as an unmanaged wallet.",
     priority: 10,
     enabled: true,
-    match: { kinds: ["tx_sign", "tx_approval"], dstTypes: ["ONE_TIME"] },
+    match: { kinds: ["tx_sign", "tx_approval"], dstTypes: ["ONE_TIME"], dstAddressTypes: ["ONE_TIME"] },
     decision: "REJECT",
     designatedSigner: "api_signer_treasury",
   },
@@ -45,6 +45,7 @@ export const DEFAULT_POLICY: PolicyRule[] = [
     match: {
       kinds: ["tx_sign"],
       operations: ["TRANSFER"],
+      srcTypes: ["VAULT"],
       dstTypes: ["VAULT"],
       maxUsd: 25_000,
     },
@@ -61,7 +62,9 @@ export const DEFAULT_POLICY: PolicyRule[] = [
     match: {
       kinds: ["tx_sign"],
       operations: ["TRANSFER"],
+      srcTypes: ["VAULT"],
       dstTypes: ["EXCHANGE", "UNMANAGED", "NETWORK_CONNECTION"],
+      dstAddressTypes: ["WHITELISTED"],
       maxUsd: 100_000,
     },
     decision: "APPROVE",
@@ -104,6 +107,32 @@ export const DEFAULT_POLICY: PolicyRule[] = [
     designatedSigner: "api_signer_treasury",
   },
 ];
+
+export function defaultApiUsers(): ApiUser[] {
+  return [
+    {
+      id: "api_signer_treasury",
+      displayName: "treasury-bot",
+      role: "Signer",
+      pairedCosignerId: "cosigner-nitro-prod-1",
+      callbackEnabled: true,
+    },
+    {
+      id: "api_approver_ops",
+      displayName: "ops-approver-bot",
+      role: "Approver",
+      pairedCosignerId: "cosigner-sgx-dr-1",
+      callbackEnabled: true,
+    },
+    {
+      id: "api_signer_lab",
+      displayName: "lab-bot",
+      role: "Signer",
+      pairedCosignerId: "cosigner-gcp-lab-1",
+      callbackEnabled: false,
+    },
+  ];
+}
 
 export function defaultCosigners(now: number): Cosigner[] {
   return [

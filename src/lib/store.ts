@@ -3,11 +3,13 @@ import { evaluatePolicy, toCallbackAction } from "@/lib/policy";
 import {
   DEFAULT_POLICY,
   DEFAULT_SETTINGS,
+  defaultApiUsers,
   defaultCosigners,
   defaultRequests,
   seedAudit,
 } from "@/lib/seed";
 import type {
+  ApiUser,
   AuditEvent,
   BotConnection,
   BotMessage,
@@ -15,6 +17,7 @@ import type {
   CallbackResponse,
   Cosigner,
   DashboardStats,
+  PolicyDecision,
   PolicyRule,
   QueueFilters,
   RequestKind,
@@ -27,6 +30,7 @@ interface CoSignState {
   audit: AuditEvent[];
   rules: PolicyRule[];
   cosigners: Cosigner[];
+  apiUsers: ApiUser[];
   settings: WorkspaceSettings;
   bot: BotConnection;
   botMessages: BotMessage[];
@@ -46,6 +50,7 @@ function createState(now = Date.now()): CoSignState {
     audit: seedAudit(requests, now),
     rules: structuredClone(DEFAULT_POLICY),
     cosigners: defaultCosigners(now),
+    apiUsers: defaultApiUsers(),
     settings: { ...DEFAULT_SETTINGS },
     bot: {
       name: "Northstar Ops Bot",
@@ -74,6 +79,9 @@ function state(): CoSignState {
     const fresh = createState();
     current.bot = fresh.bot;
     current.botMessages = fresh.botMessages;
+  }
+  if (!current.apiUsers) {
+    current.apiUsers = defaultApiUsers();
   }
   return current;
 }
@@ -128,6 +136,50 @@ export function listRules(): PolicyRule[] {
 
 export function listCosigners(): Cosigner[] {
   return structuredClone(state().cosigners);
+}
+
+export function listApiUsers(): ApiUser[] {
+  return structuredClone(state().apiUsers);
+}
+
+export function listPendingPolicyApprovals(): SignRequest[] {
+  return state()
+    .requests.filter(
+      (request) =>
+        request.status === "pending" && request.configType === "POLICY_APPROVAL",
+    )
+    .map(snapshotRequest);
+}
+
+export function pairApiUser(
+  userId: string,
+  cosignerId: string | null,
+  callbackEnabled?: boolean,
+): ApiUser {
+  const user = state().apiUsers.find((item) => item.id === userId);
+  if (!user) throw new Error("API user not found");
+  if (user.pairedCosignerId) {
+    const previous = state().cosigners.find((item) => item.id === user.pairedCosignerId);
+    if (previous && previous.pairedApiUser === user.id) {
+      previous.pairedApiUser = "";
+      previous.callbackConfigured = false;
+    }
+  }
+  user.pairedCosignerId = cosignerId;
+  if (callbackEnabled != null) user.callbackEnabled = callbackEnabled;
+  if (cosignerId) {
+    const cosigner = state().cosigners.find((item) => item.id === cosignerId);
+    if (!cosigner) throw new Error("Co-signer not found");
+    cosigner.pairedApiUser = user.id;
+    cosigner.callbackConfigured = user.callbackEnabled;
+  }
+  record(
+    "pairing",
+    cosignerId ? "BOT_PAIRED" : "BOT_UNPAIRED",
+    state().settings.operatorName,
+    `${user.id} ${cosignerId ? `paired to ${cosignerId}` : "unpaired"}`,
+  );
+  return structuredClone(user);
 }
 
 export function getSettings(): WorkspaceSettings {
@@ -247,14 +299,68 @@ function applyApprovedPolicy(request: SignRequest) {
     return;
   }
   const index = state().rules.findIndex((rule) => rule.id === ruleId);
-  if (index === -1) return;
-  state().rules[index] = structuredClone(proposed as PolicyRule);
+  if (index === -1) {
+    state().rules.push(structuredClone(proposed as PolicyRule));
+  } else {
+    state().rules[index] = structuredClone(proposed as PolicyRule);
+  }
   record(
     request.id,
     "POLICY_APPLIED",
     state().settings.operatorName,
     String(extra.summary ?? "Live TAP updated"),
   );
+}
+
+export function proposeNewRule(input: {
+  name: string;
+  destType: string;
+  maxUsd?: number | null;
+  decision: PolicyDecision;
+  designatedSigner: string;
+}): SignRequest {
+  const maxPriority = Math.max(...state().rules.map((rule) => rule.priority), 0);
+  const destType = input.destType;
+  const proposed: PolicyRule = {
+    id: `rule_${crypto.randomUUID().slice(0, 8)}`,
+    name: input.name,
+    description: "Proposed TAP rule awaiting human approval.",
+    priority: Math.min(maxPriority, 80) - 1,
+    enabled: true,
+    match: {
+      kinds: destType === "CONFIG" ? ["config_change"] : ["tx_sign"],
+      operations: destType === "CONFIG" ? undefined : ["TRANSFER"],
+      srcTypes: destType === "CONFIG" ? undefined : ["VAULT"],
+      dstTypes: destType === "CONFIG" || destType === "*" ? undefined : [destType],
+      dstAddressTypes:
+        destType === "ONE_TIME"
+          ? ["ONE_TIME"]
+          : destType === "VAULT" || destType === "*"
+            ? undefined
+            : ["WHITELISTED"],
+      maxUsd: input.maxUsd ?? undefined,
+    },
+    decision: input.decision,
+    designatedSigner: input.designatedSigner,
+  };
+
+  const { request } = ingestCallback("config_change", {
+    requestId: `req_pol_${crypto.randomUUID().slice(0, 8)}`,
+    type: "POLICY_APPROVAL",
+    extraInfo: {
+      summary: `Add TAP rule "${proposed.name}" · ${proposed.decision} · ${destType}${
+        input.maxUsd != null ? ` ≤ $${input.maxUsd}` : ""
+      }`,
+      submittedBy: state().settings.operatorName,
+      ruleId: proposed.id,
+      current: null,
+      proposed,
+      mode: "add",
+    },
+    signerId: "api_approver_ops",
+    players: ["cosigner-sgx-dr-1"],
+  });
+  return request;
 }
 
 export function resetStore(): void {

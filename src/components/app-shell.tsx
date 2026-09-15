@@ -22,8 +22,8 @@ import { SimulateDialog } from "@/components/simulate-dialog";
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/queue", label: "Queue", icon: ClipboardList },
-  { href: "/policy", label: "Policy", icon: Gavel },
-  { href: "/bot", label: "Ops bot", icon: Bot },
+  { href: "/policy", label: "TAP", icon: Gavel },
+  { href: "/bot", label: "Bots", icon: Bot },
   { href: "/audit", label: "Audit", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

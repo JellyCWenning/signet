@@ -26,7 +26,7 @@ export default function OverviewPage() {
       <PageHeader
         eyebrow="Workspace"
         title="Co-sign desk"
-        description="Review held signing requests, watch auto-signed treasury flow, and keep the API Co-Signer callback handler in the loop."
+        description="Pair an API bot to the Co-Signer. TAP ALLOW auto-approves Fireblocks transfers. Anything else — including TAP edits — waits for a human."
         actions={
           <Button nativeButton={false} render={<Link href="/queue" />}>
             Open queue
@@ -34,9 +34,41 @@ export default function OverviewPage() {
         }
       />
 
-      {workspace.error ? (
-        <p className="text-sm text-destructive">{workspace.error}</p>
-      ) : null}
+      <section className="grid gap-3 sm:grid-cols-3">
+        <Card size="sm">
+          <CardHeader>
+            <CardDescription>1. Pair bot</CardDescription>
+            <CardTitle className="text-base">API user → Co-Signer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              treasury-bot is paired to nitro-prod-1 with callback on /v2/tx_sign_request.
+            </p>
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardDescription>2. TAP match</CardDescription>
+            <CardTitle className="text-base">ALLOW auto-approves</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              Vault→vault ≤ $25k and allowlisted ≤ $100k return APPROVE. One-time addresses BLOCK.
+            </p>
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardHeader>
+            <CardDescription>3. Human gate</CardDescription>
+            <CardTitle className="text-base">Policy edits wait</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">
+              Changing a threshold creates POLICY_APPROVAL. Live TAP does not change until an operator signs it.
+            </p>
+          </CardContent>
+        </Card>
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

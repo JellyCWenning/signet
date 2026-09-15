@@ -6,9 +6,10 @@ The Co-Signer holds an MPC key share in an enclave and asks this service whether
 
 ## What you can do
 
+- Pair a Fireblocks API user (bot) to a Co-Signer and enable the callback handler
 - Auto-approve Fireblocks wallet transfers that match TAP (amount ceiling, destination type, operation)
 - Hold anything that does not match, then approve or reject from the queue or via `/approve` / `/reject` on the ops bot
-- Edit thresholds and toggle rules in the Policy UI — those changes create a `POLICY_APPROVAL` request and only go live after human approval
+- Edit thresholds and add TAP rules — those changes create a `POLICY_APPROVAL` request and only go live after human approval
 - Simulate Co-Signer callbacks without Fireblocks credentials
 - Read the audit log of callback retries, auto-signs, and operator decisions
 

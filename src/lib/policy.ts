@@ -8,7 +8,14 @@ export interface PolicyEvaluation {
 export function evaluatePolicy(
   request: Pick<
     SignRequest,
-    "kind" | "operation" | "destType" | "assetId" | "amountUsd" | "configType"
+    | "kind"
+    | "operation"
+    | "sourceType"
+    | "destType"
+    | "destAddressType"
+    | "assetId"
+    | "amountUsd"
+    | "configType"
   >,
   rules: PolicyRule[],
 ): PolicyEvaluation {
@@ -28,7 +35,14 @@ export function evaluatePolicy(
 function matches(
   request: Pick<
     SignRequest,
-    "kind" | "operation" | "destType" | "assetId" | "amountUsd" | "configType"
+    | "kind"
+    | "operation"
+    | "sourceType"
+    | "destType"
+    | "destAddressType"
+    | "assetId"
+    | "amountUsd"
+    | "configType"
   >,
   rule: PolicyRule,
 ): boolean {
@@ -41,8 +55,21 @@ function matches(
     return false;
   }
   if (
+    match.srcTypes?.length &&
+    (!request.sourceType || !match.srcTypes.includes(request.sourceType))
+  ) {
+    return false;
+  }
+  if (
     match.dstTypes?.length &&
     (!request.destType || !match.dstTypes.includes(request.destType))
+  ) {
+    return false;
+  }
+  if (
+    match.dstAddressTypes?.length &&
+    (!request.destAddressType ||
+      !match.dstAddressTypes.includes(request.destAddressType))
   ) {
     return false;
   }

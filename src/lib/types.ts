@@ -22,7 +22,9 @@ export type CosignerHealth = "online" | "degraded" | "offline";
 export interface PolicyMatch {
   kinds?: RequestKind[];
   operations?: string[];
+  srcTypes?: string[];
   dstTypes?: string[];
+  dstAddressTypes?: Array<"WHITELISTED" | "ONE_TIME">;
   assets?: string[];
   minUsd?: number;
   maxUsd?: number;
@@ -97,6 +99,14 @@ export interface Cosigner {
   callbackConfigured: boolean;
   lastHeartbeatAt: string;
   signed24h: number;
+}
+
+export interface ApiUser {
+  id: string;
+  displayName: string;
+  role: "Signer" | "Approver";
+  pairedCosignerId: string | null;
+  callbackEnabled: boolean;
 }
 
 export interface WorkspaceSettings {
