@@ -4,21 +4,32 @@ Callback handler and operator desk for [Fireblocks API Co-Signers](https://devel
 
 ## Architecture
 
+```mermaid
+flowchart LR
+  bot["API Bot<br/>treasury-bot"] --> cosigner["API Co-Signer<br/>Nitro / SGX / GCP"]
+  cosigner -->|"POST /v2/tx_sign_request"| tap["本服务 TAP<br/>第一条命中的 live 规则"]
+  tap -->|ALLOW| approve["APPROVE"]
+  tap -->|BLOCK| reject["REJECT"]
+  tap -->|2-TIER| retry["RETRY"]
+  approve --> sign["Co-Signer 签名"]
+  reject --> fail["交易失败"]
+  retry --> human["队列 / Ops Bot"]
+  human -->|"同一 requestId 再问"| cosigner
 ```
-Fireblocks API Co-Signer
-        │  POST /v2/tx_sign_request
-        ▼
-This service (callback)
-        │  evaluate live TAP (first matching enabled rule)
-        ▼
-TAP ALLOW  →  { "action": "APPROVE", "requestId" }   Co-Signer signs
-TAP BLOCK  →  { "action": "REJECT",  "requestId" }   transaction fails
-TAP 2-TIER →  { "action": "RETRY",   "requestId" }   held for an operator / ops bot
+
+```mermaid
+flowchart TD
+  edit["改阈值 / 加规则 / 开关"] --> draft["POLICY_APPROVAL 草稿"]
+  draft --> hold["live TAP 不变 · callback 回 RETRY"]
+  hold --> signoff["操作员 Approve & sign"]
+  signoff --> live["写入 live TAP"]
 ```
 
 This TAP is ours, not Fireblocks workspace TAP. Configure the Co-Signer callback URL to this app origin; Fireblocks appends the path.
 
 Policy edits (`POLICY_APPROVAL`) are always 2-TIER. Live TAP does not change until a human approves them.
+
+Open the in-app diagram at `/flow`.
 
 ## What you can do
 
