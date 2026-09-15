@@ -95,7 +95,7 @@ export function BotView({
       <PageHeader
         eyebrow="API Co-Signer"
         title="Bots"
-        description="Pair a Fireblocks API user (bot) to a Co-Signer and turn on the callback handler. Matching TAP rules are auto-approved. Held transfers can also be decided from the ops chat bot."
+        description="Pair a Fireblocks API user (bot) to a Co-Signer and turn on the callback. The handler evaluates our TAP: ALLOW returns APPROVE. Held transfers can also be decided from the ops chat bot."
       />
 
       <Card>

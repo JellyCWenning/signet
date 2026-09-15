@@ -93,13 +93,3 @@ function matches(
   }
   return true;
 }
-
-export function toCallbackAction(
-  decision: PolicyDecision,
-  kind: SignRequest["kind"],
-): "APPROVE" | "REJECT" | "RETRY" | "IGNORE" {
-  if (decision === "APPROVE") return "APPROVE";
-  if (decision === "REJECT") return "REJECT";
-  if (kind === "tx_sign") return "RETRY";
-  return "RETRY";
-}

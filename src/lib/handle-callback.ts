@@ -13,6 +13,7 @@ async function handle(kind: "tx_sign" | "config_change", request: Request) {
       const text = await request.text();
       raw = text;
     }
+    // Co-Signer callback → live TAP. ALLOW returns APPROVE immediately.
     const { response } = ingestCallback(kind, raw);
     return NextResponse.json(response);
   } catch (error) {

@@ -33,7 +33,7 @@ export function OverviewView({
       <PageHeader
         eyebrow="Workspace"
         title="Co-sign desk"
-        description="Pair an API bot to the Co-Signer. TAP ALLOW auto-approves Fireblocks transfers. Anything else — including TAP edits — waits for a human."
+        description="Pair an API bot to the Co-Signer. The callback asks this TAP; ALLOW returns APPROVE immediately. Anything else — including TAP edits — waits for a human."
         actions={
           <Button nativeButton={false} render={<Link href="/queue" />}>
             Open queue
@@ -60,7 +60,8 @@ export function OverviewView({
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Vault→vault ≤ $25k and allowlisted ≤ $100k return APPROVE. One-time addresses BLOCK.
+              Callback hits this TAP. Vault→vault ≤ $25k and allowlisted ≤ $100k ALLOW → APPROVE.
+              One-time addresses BLOCK.
             </p>
           </CardContent>
         </Card>

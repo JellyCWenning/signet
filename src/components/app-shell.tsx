@@ -71,7 +71,7 @@ export function AppShell({
             <span className="text-sm font-medium">Fireblocks Co-Sign</span>
           </div>
           <p className="hidden text-sm text-muted-foreground lg:block">
-            Callback handler for API Co-Signers · JSON demo mode
+            Callback handler · TAP ALLOW → APPROVE
           </p>
           <SimulateDialog />
         </header>

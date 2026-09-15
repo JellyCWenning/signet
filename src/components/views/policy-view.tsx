@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { useJson } from "@/hooks/use-json";
+import { TapCallbackMap } from "@/components/tap-callback-map";
 import { amountLabel, assetLabel, destLabel, sourceLabel, tapAction, typeLabel } from "@/lib/tap";
 import { cn } from "@/lib/utils";
 import type { PolicyDecision, PolicyRule, SignRequest } from "@/lib/types";
@@ -110,8 +111,10 @@ export function PolicyView({
       <PageHeader
         eyebrow="Transaction Authorization Policy"
         title="TAP"
-        description="Rules run top to bottom. The first match decides whether the paired API bot auto-signs (ALLOW), blocks, or holds for 2-tier review. Changing a threshold or rule creates a POLICY_APPROVAL — live TAP does not change until a human approves it."
+        description="This is our TAP, served behind the Co-Signer callback. First matching live rule wins: ALLOW returns APPROVE immediately. Changing a threshold or rule creates a POLICY_APPROVAL — live TAP does not change until a human approves it."
       />
+
+      <TapCallbackMap />
 
       {pending.length > 0 ? (
         <Card className="border-amber-400/30">

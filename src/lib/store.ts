@@ -1,5 +1,5 @@
 import { normalizeCallback, parseCallbackBody } from "@/lib/callback";
-import { evaluatePolicy, toCallbackAction } from "@/lib/policy";
+import { callbackFromTap, evaluateTap } from "@/lib/tap-engine";
 import {
   DEFAULT_POLICY,
   DEFAULT_SETTINGS,
@@ -389,25 +389,25 @@ export function ingestCallback(
     };
   }
 
-  const evaluation = evaluatePolicy(incoming, state().rules);
+  const evaluation = evaluateTap(incoming, state().rules);
   const request: SignRequest = {
     ...incoming,
     status: "pending",
     matchedRuleId: evaluation.rule?.id,
     matchedRuleName: evaluation.rule?.name,
-    policyVerdict: evaluation.decision,
+    policyVerdict: evaluation.policyDecision,
   };
 
-  if (evaluation.decision === "APPROVE") {
+  if (evaluation.verdict === "ALLOW") {
     request.status = "auto_approved";
     request.decidedAt = request.createdAt;
     request.decisionSource = "policy";
-  } else if (evaluation.decision === "REJECT") {
+  } else if (evaluation.verdict === "BLOCK") {
     request.status = "auto_rejected";
     request.decidedAt = request.createdAt;
     request.decisionSource = "policy";
     request.rejectionReason =
-      evaluation.rule?.name ?? "Rejected by co-sign policy";
+      evaluation.rule?.name ?? "Rejected by TAP";
   }
 
   state().requests.unshift(request);
@@ -448,7 +448,7 @@ export function ingestCallback(
     notifyHold(request);
   }
 
-  return { response: responseFor(request), request: snapshotRequest(request) };
+  return { response: callbackFromTap(request.id, evaluation, request.rejectionReason), request: snapshotRequest(request) };
 }
 
 export function decideRequest(
@@ -527,7 +527,7 @@ function responseFor(request: SignRequest): CallbackResponse {
     return { action: "IGNORE", requestId: request.id };
   }
   return {
-    action: toCallbackAction("REVIEW", request.kind),
+    action: "RETRY",
     requestId: request.id,
   };
 }
