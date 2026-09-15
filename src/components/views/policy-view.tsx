@@ -64,6 +64,11 @@ export function PolicyView({
         throw new Error(body.error ?? "Unable to submit TAP change");
       }
       setData({ rules: body.rules, pending: body.pending });
+      setDrafts((current) => {
+        const next = { ...current };
+        delete next[rule.id];
+        return next;
+      });
       toast.success("Waiting on human approval", { description: body.change?.id });
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Unable to submit");

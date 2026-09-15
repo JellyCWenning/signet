@@ -57,8 +57,9 @@ export function AppShell({
         <header className="flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3 lg:px-8">
           <div className="flex items-center gap-2 lg:hidden">
             <Sheet>
-              <SheetTrigger render={<Button variant="ghost" size="icon" />}>
+              <SheetTrigger render={<Button type="button" variant="ghost" size="icon" />}>
                 <Menu />
+                <span className="sr-only">Open navigation</span>
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0">
                 <SheetHeader className="sr-only">
@@ -75,7 +76,7 @@ export function AppShell({
           </p>
           <SimulateDialog />
         </header>
-        <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>
   );
