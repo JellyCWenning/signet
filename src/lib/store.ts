@@ -9,6 +9,8 @@ import {
 } from "@/lib/seed";
 import type {
   AuditEvent,
+  BotConnection,
+  BotMessage,
   CallbackAction,
   CallbackResponse,
   Cosigner,
@@ -26,6 +28,8 @@ interface CoSignState {
   rules: PolicyRule[];
   cosigners: Cosigner[];
   settings: WorkspaceSettings;
+  bot: BotConnection;
+  botMessages: BotMessage[];
 }
 
 const globalForStore = globalThis as typeof globalThis & {
@@ -43,6 +47,21 @@ function createState(now = Date.now()): CoSignState {
     rules: structuredClone(DEFAULT_POLICY),
     cosigners: defaultCosigners(now),
     settings: { ...DEFAULT_SETTINGS },
+    bot: {
+      name: "Northstar Ops Bot",
+      kind: "telegram",
+      status: "connected",
+      chatId: "@northstar_ops",
+      autoNotifyHolds: true,
+    },
+    botMessages: [
+      {
+        id: "bot_hello",
+        at: new Date(now - 60_000).toISOString(),
+        direction: "out",
+        text: "Ops bot connected. I auto-approve transfers that match TAP and ping this chat when a request is held.",
+      },
+    ],
   };
 }
 
@@ -50,7 +69,13 @@ function state(): CoSignState {
   if (!globalForStore.__fbCoSign) {
     globalForStore.__fbCoSign = createState();
   }
-  return globalForStore.__fbCoSign;
+  const current = globalForStore.__fbCoSign;
+  if (!current.bot || !current.botMessages) {
+    const fresh = createState();
+    current.bot = fresh.bot;
+    current.botMessages = fresh.botMessages;
+  }
+  return current;
 }
 
 function record(
@@ -132,17 +157,104 @@ export function getStats(): DashboardStats {
   };
 }
 
-export function setRuleEnabled(id: string, enabled: boolean): PolicyRule {
-  const rule = state().rules.find((item) => item.id === id);
-  if (!rule) throw new Error("Policy rule not found");
-  rule.enabled = enabled;
-  record(
-    "policy",
-    enabled ? "RULE_ENABLED" : "RULE_DISABLED",
-    state().settings.operatorName,
-    `${rule.name} ${enabled ? "enabled" : "disabled"}`,
+export function getBot(): { bot: BotConnection; messages: BotMessage[] } {
+  return {
+    bot: { ...state().bot },
+    messages: state().botMessages.map((message) => ({ ...message })),
+  };
+}
+
+export function setBotConnected(connected: boolean): BotConnection {
+  state().bot.status = connected ? "connected" : "disconnected";
+  pushBot(
+    "out",
+    connected
+      ? "Ops bot reconnected. TAP auto-approve is live."
+      : "Ops bot disconnected. Transfers still evaluate TAP; held items will not be pinged.",
   );
-  return structuredClone(rule);
+  return { ...state().bot };
+}
+
+function pushBot(direction: BotMessage["direction"], text: string) {
+  state().botMessages.push({
+    id: `bot_${crypto.randomUUID()}`,
+    at: new Date().toISOString(),
+    direction,
+    text,
+  });
+}
+
+function notifyHold(request: SignRequest) {
+  if (state().bot.status !== "connected" || !state().bot.autoNotifyHolds) return;
+  const subject =
+    request.kind === "config_change"
+      ? request.extraInfo?.summary ?? request.configType
+      : `${request.amount ?? ""} ${request.assetId ?? ""} → ${request.destName ?? request.destType}`;
+  pushBot(
+    "out",
+    `HELD ${request.id}\n${subject}\nReply /approve ${request.id} or /reject ${request.id}`,
+  );
+}
+
+export function proposeRuleChange(
+  id: string,
+  patch: { enabled?: boolean; maxUsd?: number | null; name?: string },
+): SignRequest {
+  const current = state().rules.find((item) => item.id === id);
+  if (!current) throw new Error("Policy rule not found");
+
+  const proposed: PolicyRule = structuredClone(current);
+  if (patch.enabled != null) proposed.enabled = patch.enabled;
+  if (patch.name) proposed.name = patch.name;
+  if (patch.maxUsd === null) {
+    delete proposed.match.maxUsd;
+  } else if (patch.maxUsd != null) {
+    proposed.match.maxUsd = patch.maxUsd;
+  }
+
+  const summaryParts = [`Update TAP rule "${current.name}"`];
+  if (patch.enabled != null && patch.enabled !== current.enabled) {
+    summaryParts.push(patch.enabled ? "enable" : "disable");
+  }
+  if (patch.maxUsd !== undefined && patch.maxUsd !== current.match.maxUsd) {
+    summaryParts.push(
+      `threshold ${current.match.maxUsd ?? "none"} → ${patch.maxUsd ?? "none"}`,
+    );
+  }
+
+  const { request } = ingestCallback("config_change", {
+    requestId: `req_pol_${crypto.randomUUID().slice(0, 8)}`,
+    type: "POLICY_APPROVAL",
+    extraInfo: {
+      summary: summaryParts.join(" · "),
+      submittedBy: state().settings.operatorName,
+      ruleId: current.id,
+      current,
+      proposed,
+    },
+    signerId: "api_approver_ops",
+    players: ["cosigner-sgx-dr-1"],
+  });
+  return request;
+}
+
+function applyApprovedPolicy(request: SignRequest) {
+  const extra = request.extraInfo;
+  if (!extra) return;
+  const ruleId = extra.ruleId;
+  const proposed = extra.proposed;
+  if (typeof ruleId !== "string" || !proposed || typeof proposed !== "object") {
+    return;
+  }
+  const index = state().rules.findIndex((rule) => rule.id === ruleId);
+  if (index === -1) return;
+  state().rules[index] = structuredClone(proposed as PolicyRule);
+  record(
+    request.id,
+    "POLICY_APPLIED",
+    state().settings.operatorName,
+    String(extra.summary ?? "Live TAP updated"),
+  );
 }
 
 export function resetStore(): void {
@@ -207,6 +319,12 @@ export function ingestCallback(
       `policy:${request.matchedRuleId}`,
       `Auto-signed by ${request.matchedRuleName}`,
     );
+    if (state().bot.status === "connected") {
+      pushBot(
+        "out",
+        `AUTO-APPROVE ${request.id} · ${request.matchedRuleName}`,
+      );
+    }
   } else if (request.status === "auto_rejected") {
     record(
       request.id,
@@ -214,6 +332,14 @@ export function ingestCallback(
       `policy:${request.matchedRuleId}`,
       request.rejectionReason ?? "Auto-rejected",
     );
+    if (state().bot.status === "connected") {
+      pushBot(
+        "out",
+        `AUTO-REJECT ${request.id} · ${request.rejectionReason}`,
+      );
+    }
+  } else {
+    notifyHold(request);
   }
 
   return { response: responseFor(request), request: snapshotRequest(request) };
@@ -250,7 +376,34 @@ export function decideRequest(
     request.rejectionReason ?? `Operator ${action.toLowerCase()}`,
   );
 
+  if (action === "APPROVE" && request.configType === "POLICY_APPROVAL") {
+    applyApprovedPolicy(request);
+  }
+
   return snapshotRequest(request);
+}
+
+export function handleBotCommand(text: string): { reply: string; request?: SignRequest } {
+  const trimmed = text.trim();
+  pushBot("in", trimmed);
+  const match = trimmed.match(/^\/(approve|reject|ignore)\s+(\S+)/i);
+  if (!match) {
+    const reply =
+      "Commands: /approve <requestId>, /reject <requestId>, /ignore <requestId>";
+    pushBot("out", reply);
+    return { reply };
+  }
+  const action = match[1].toUpperCase() as "APPROVE" | "REJECT" | "IGNORE";
+  try {
+    const request = decideRequest(match[2], action, `Via ${state().bot.name}`);
+    const reply = `${action} sent for ${request.id}`;
+    pushBot("out", reply);
+    return { reply, request };
+  } catch (error) {
+    const reply = error instanceof Error ? error.message : "Bot command failed";
+    pushBot("out", reply);
+    return { reply };
+  }
 }
 
 function responseFor(request: SignRequest): CallbackResponse {

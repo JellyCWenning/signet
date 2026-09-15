@@ -124,3 +124,25 @@ export interface DashboardStats {
   onlineCosigners: number;
   totalCosigners: number;
 }
+
+export interface PolicyPatch {
+  ruleId: string;
+  summary: string;
+  current: PolicyRule;
+  proposed: PolicyRule;
+}
+
+export interface BotConnection {
+  name: string;
+  kind: "telegram";
+  status: "connected" | "disconnected";
+  chatId: string;
+  autoNotifyHolds: boolean;
+}
+
+export interface BotMessage {
+  id: string;
+  at: string;
+  direction: "in" | "out";
+  text: string;
+}

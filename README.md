@@ -1,18 +1,16 @@
 # Fireblocks Co-Sign
 
-Operator desk and callback handler for [Fireblocks API Co-Signers](https://developers.fireblocks.com/docs/use-cosigners-for-signing-automation).
+Operator desk, TAP engine, and callback handler for [Fireblocks API Co-Signers](https://developers.fireblocks.com/docs/use-cosigners-for-signing-automation).
 
-The Co-Signer holds an MPC key share in an enclave (AWS Nitro, Intel SGX, or GCP Confidential Space) and asks this service whether to participate in a signature. This repo is a working slice of that loop: a Fireblocks-shaped callback API, a TAP-style policy engine, and a console for held requests.
+The Co-Signer holds an MPC key share in an enclave and asks this service whether to participate in a signature. Transfers that match the Transaction Authorization Policy are auto-approved. Everything else — including TAP edits — waits for a human or the paired ops bot.
 
 ## What you can do
 
-- Inspect the live signing queue (seeded Northstar treasury traffic)
-- Approve, reject, or ignore a held request — the next callback for that `requestId` returns `APPROVE` / `REJECT` / `IGNORE`
-- Simulate Co-Signer callbacks (internal refill, large CEX withdrawal, one-time address, Uniswap call, policy change)
-- Toggle policy rules and watch auto-sign vs hold behavior change
-- Read the audit log of callback retries and operator decisions
-
-No Fireblocks credentials are required. The workspace runs in JSON demo mode.
+- Auto-approve Fireblocks wallet transfers that match TAP (amount ceiling, destination type, operation)
+- Hold anything that does not match, then approve or reject from the queue or via `/approve` / `/reject` on the ops bot
+- Edit thresholds and toggle rules in the Policy UI — those changes create a `POLICY_APPROVAL` request and only go live after human approval
+- Simulate Co-Signer callbacks without Fireblocks credentials
+- Read the audit log of callback retries, auto-signs, and operator decisions
 
 ## Run locally
 
@@ -25,7 +23,7 @@ Open [http://localhost:43147](http://localhost:43147).
 
 ## Callback contract
 
-Point an API Co-Signer callback URL at this app. Fireblocks appends the path:
+Configure the Co-Signer callback URL as the origin of this app. Fireblocks appends the path ([docs](https://developers.fireblocks.com/docs/create-api-co-signer-callback-handler)):
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -42,7 +40,7 @@ Response body:
 }
 ```
 
-`action` is one of `APPROVE`, `REJECT`, `RETRY`, or `IGNORE`. `IGNORE` is valid for approvals only, not signing. Held requests return `RETRY` until an operator decides.
+`action` is one of `APPROVE`, `REJECT`, `RETRY`, or `IGNORE`. `IGNORE` is valid for approvals only, not signing. Held requests return `RETRY` until an operator or the ops bot decides.
 
 Production handlers should verify the Co-Signer JWT and sign the response with RS256. This demo accepts JSON (and unsigned JWTs) so you can run it without secrets.
 

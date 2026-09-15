@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bot,
   ClipboardList,
   Gavel,
   LayoutDashboard,
@@ -22,6 +23,7 @@ const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/queue", label: "Queue", icon: ClipboardList },
   { href: "/policy", label: "Policy", icon: Gavel },
+  { href: "/bot", label: "Ops bot", icon: Bot },
   { href: "/audit", label: "Audit", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

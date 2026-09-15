@@ -46,7 +46,7 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle>Endpoints</CardTitle>
             <CardDescription>
-              The Co-Signer appends these paths to the callback URL you configure on the API user.
+              Point an API Co-Signer callback URL at this app. Fireblocks appends these paths:
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
