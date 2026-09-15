@@ -5,16 +5,32 @@ Callback handler and operator desk for [Fireblocks API Co-Signers](https://devel
 ## Architecture
 
 ```mermaid
-flowchart LR
-  bot["API Bot<br/>treasury-bot"] --> cosigner["API Co-Signer<br/>Nitro / SGX / GCP"]
-  cosigner -->|"POST /v2/tx_sign_request"| tap["本服务 TAP<br/>第一条命中的 live 规则"]
-  tap -->|ALLOW| approve["APPROVE"]
-  tap -->|BLOCK| reject["REJECT"]
-  tap -->|2-TIER| retry["RETRY"]
-  approve --> sign["Co-Signer 签名"]
-  reject --> fail["交易失败"]
-  retry --> human["队列 / Ops Bot"]
-  human -->|"同一 requestId 再问"| cosigner
+sequenceDiagram
+  participant Bot as API Bot
+  participant FB as Fireblocks 云
+  participant CS as API Co-Signer
+  participant TAP as 本服务 TAP
+  participant Ops as 队列 / Ops Bot
+
+  Bot->>FB: 1. 发出信号（创建转账）
+  FB->>CS: 2. 请求 enclave 分片参与 MPC
+  CS->>TAP: 3. POST /v2/tx_sign_request
+  alt TAP ALLOW
+    TAP-->>CS: APPROVE
+    CS->>FB: 4. 用分片签名
+    FB-->>Bot: 5. 合成签名并广播 · sign 完成
+  else TAP BLOCK
+    TAP-->>CS: REJECT
+    CS-->>FB: 不签名 · 交易失败
+  else TAP 2-TIER
+    TAP-->>CS: RETRY
+    TAP->>Ops: 写入队列
+    Ops->>TAP: Approve / Reject
+    FB->>CS: 同一 requestId 再问
+    CS->>TAP: POST /v2/tx_sign_request
+    TAP-->>CS: APPROVE 或 REJECT
+    CS->>FB: 仅 APPROVE 时完成 sign
+  end
 ```
 
 ```mermaid
