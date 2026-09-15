@@ -20,7 +20,7 @@ export function SettingsView({
   };
 }) {
   const router = useRouter();
-  const { data, reload } = useJson("/api/workspace", 2500, initial);
+  const { data, setData } = useJson("/api/workspace", 2500, initial);
 
   async function reset() {
     const response = await fetch("/api/workspace", {
@@ -28,12 +28,13 @@ export function SettingsView({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action: "reset" }),
     });
+    const body = await response.json();
     if (!response.ok) {
       toast.error("Unable to reset workspace");
       return;
     }
     toast.success("Demo workspace restored");
-    await reload();
+    setData(body);
     router.refresh();
   }
 
@@ -84,7 +85,7 @@ export function SettingsView({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" onClick={() => void reset()}>
+            <Button type="button" variant="outline" onClick={() => void reset()}>
               Reset workspace
             </Button>
           </CardContent>

@@ -34,7 +34,7 @@ export function PolicyView({
 }: {
   initial: { rules: PolicyRule[]; pending: SignRequest[] };
 }) {
-  const { data, error, loading, reload } = useJson("/api/policy", 2500, initial);
+  const { data, error, loading, setData } = useJson("/api/policy", 2500, initial);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [newName, setNewName] = useState("Allowlisted CEX under ceiling");
@@ -53,10 +53,17 @@ export function PolicyView({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: rule.id, ...patch }),
       });
-      const body = (await response.json()) as SignRequest & { error?: string };
-      if (!response.ok) throw new Error(body.error ?? "Unable to submit TAP change");
-      toast.success("Waiting on human approval", { description: body.id });
-      await reload();
+      const body = (await response.json()) as {
+        error?: string;
+        rules?: PolicyRule[];
+        pending?: SignRequest[];
+        change?: SignRequest;
+      };
+      if (!response.ok || !body.rules || !body.pending) {
+        throw new Error(body.error ?? "Unable to submit TAP change");
+      }
+      setData({ rules: body.rules, pending: body.pending });
+      toast.success("Waiting on human approval", { description: body.change?.id });
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Unable to submit");
     } finally {
@@ -80,10 +87,17 @@ export function PolicyView({
           designatedSigner: "api_signer_treasury",
         }),
       });
-      const body = (await response.json()) as SignRequest & { error?: string };
-      if (!response.ok) throw new Error(body.error ?? "Unable to add TAP rule");
-      toast.success("New TAP rule submitted for approval", { description: body.id });
-      await reload();
+      const body = (await response.json()) as {
+        error?: string;
+        rules?: PolicyRule[];
+        pending?: SignRequest[];
+        change?: SignRequest;
+      };
+      if (!response.ok || !body.rules || !body.pending) {
+        throw new Error(body.error ?? "Unable to add TAP rule");
+      }
+      setData({ rules: body.rules, pending: body.pending });
+      toast.success("New TAP rule submitted for approval", { description: body.change?.id });
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Unable to add TAP rule");
     } finally {
@@ -176,6 +190,7 @@ export function PolicyView({
                               }
                             />
                             <Button
+                              type="button"
                               size="xs"
                               variant="outline"
                               disabled={busy === rule.id}
@@ -267,7 +282,7 @@ export function PolicyView({
               <SelectItem value="REVIEW">2-TIER (hold)</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => void addRule()} disabled={busy === "new"}>
+          <Button type="button" onClick={() => void addRule()} disabled={busy === "new"}>
             Submit for approval
           </Button>
         </CardContent>

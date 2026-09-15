@@ -16,6 +16,6 @@ export async function POST(request: Request) {
   if (!body.text?.trim()) {
     return NextResponse.json({ error: "text is required" }, { status: 400 });
   }
-  const result = handleBotCommand(body.text);
-  return NextResponse.json({ ...getBot(), ...result });
+  handleBotCommand(body.text);
+  return NextResponse.json(getBot());
 }

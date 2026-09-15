@@ -80,7 +80,7 @@ export function SimulateDialog() {
           ))}
         </div>
         <DialogFooter>
-          <Button onClick={run} disabled={busy}>
+          <Button type="button" onClick={run} disabled={busy}>
             {busy ? "Posting…" : "Send to callback handler"}
           </Button>
         </DialogFooter>

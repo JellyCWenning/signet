@@ -25,7 +25,11 @@ export async function PATCH(request: Request) {
       enabled: body.enabled,
       maxUsd: body.maxUsd,
     });
-    return NextResponse.json(change);
+    return NextResponse.json({
+      rules: listRules(),
+      pending: listPendingPolicyApprovals(),
+      change,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to propose policy change";
     return NextResponse.json({ error: message }, { status: 400 });
@@ -47,15 +51,18 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    return NextResponse.json(
-      proposeNewRule({
-        name: body.name,
-        destType: body.destType,
-        maxUsd: body.maxUsd,
-        decision: body.decision,
-        designatedSigner: body.designatedSigner,
-      }),
-    );
+    const change = proposeNewRule({
+      name: body.name,
+      destType: body.destType,
+      maxUsd: body.maxUsd,
+      decision: body.decision,
+      designatedSigner: body.designatedSigner,
+    });
+    return NextResponse.json({
+      rules: listRules(),
+      pending: listPendingPolicyApprovals(),
+      change,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to propose TAP rule";
     return NextResponse.json({ error: message }, { status: 400 });

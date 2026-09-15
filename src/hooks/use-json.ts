@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 async function loadJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: "no-store" });
@@ -16,47 +16,72 @@ export function useJson<T>(
   intervalMs = 2500,
   initialData: T | null = null,
 ) {
-  const [data, setData] = useState<T | null>(initialData);
+  const [data, setDataState] = useState<T | null>(initialData);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(initialData == null);
+  const [resource, setResource] = useState(url);
+  const generation = useRef(0);
+
+  if (url !== resource) {
+    setResource(url);
+    setDataState(initialData);
+    setLoading(initialData == null);
+    setError(null);
+  }
+
+  const apply = useCallback((next: T, expected: number) => {
+    if (expected !== generation.current) return false;
+    setDataState(next);
+    setError(null);
+    setLoading(false);
+    return true;
+  }, []);
+
+  const setData = useCallback((next: T) => {
+    generation.current += 1;
+    setDataState(next);
+    setError(null);
+    setLoading(false);
+  }, []);
 
   const reload = useCallback(async () => {
+    const expected = ++generation.current;
     try {
       const next = await loadJson<T>(url);
-      setData(next);
-      setError(null);
+      apply(next, expected);
+      return next;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to load");
-    } finally {
-      setLoading(false);
+      if (expected === generation.current) {
+        setError(caught instanceof Error ? caught.message : "Failed to load");
+        setLoading(false);
+      }
+      return null;
     }
-  }, [url]);
+  }, [apply, url]);
 
   useEffect(() => {
     let cancelled = false;
 
-    function tick() {
-      void loadJson<T>(url)
-        .then((next) => {
-          if (cancelled) return;
-          setData(next);
-          setError(null);
-          setLoading(false);
-        })
-        .catch((caught: unknown) => {
-          if (cancelled) return;
-          setError(caught instanceof Error ? caught.message : "Failed to load");
-          setLoading(false);
-        });
+    async function tick() {
+      const expected = ++generation.current;
+      try {
+        const next = await loadJson<T>(url);
+        if (cancelled) return;
+        apply(next, expected);
+      } catch (caught: unknown) {
+        if (cancelled || expected !== generation.current) return;
+        setError(caught instanceof Error ? caught.message : "Failed to load");
+        setLoading(false);
+      }
     }
 
-    tick();
-    const interval = window.setInterval(tick, intervalMs);
+    void tick();
+    const interval = window.setInterval(() => void tick(), intervalMs);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [intervalMs, url]);
+  }, [apply, intervalMs, url]);
 
-  return { data, error, loading, reload };
+  return { data, error, loading, reload, setData };
 }

@@ -49,7 +49,7 @@ export function BotView({
       return;
     }
     toast.success(cosignerId ? "API bot paired to Co-Signer" : "API bot unpaired");
-    await workspace.reload();
+    workspace.setData(body);
   }
 
   async function send() {
@@ -65,7 +65,7 @@ export function BotView({
       const body = await response.json();
       if (!response.ok) throw new Error(body.error ?? "Bot command failed");
       setText("");
-      await chat.reload();
+      chat.setData(body);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Bot command failed");
     } finally {
@@ -74,12 +74,17 @@ export function BotView({
   }
 
   async function toggleChat(connected: boolean) {
-    await fetch("/api/bot", {
+    const response = await fetch("/api/bot", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ connected }),
     });
-    await chat.reload();
+    const body = await response.json();
+    if (!response.ok) {
+      toast.error(body.error ?? "Unable to update bot");
+      return;
+    }
+    chat.setData(body);
   }
 
   const bot = chat.data?.bot;
@@ -204,22 +209,22 @@ export function BotView({
               ))
             )}
           </div>
-          <form
-            className="flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void send();
-            }}
-          >
+          <div className="flex gap-2">
             <Input
               value={text}
               onChange={(event) => setText(event.target.value)}
               placeholder="/approve req_7f3c91a2"
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void send();
+                }
+              }}
             />
-            <Button type="submit" disabled={busy}>
+            <Button type="button" disabled={busy} onClick={() => void send()}>
               Send
             </Button>
-          </form>
+          </div>
         </CardContent>
       </Card>
     </div>

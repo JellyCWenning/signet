@@ -10,13 +10,17 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return NextResponse.json({
+function snapshot() {
+  return {
     settings: getSettings(),
     stats: getStats(),
     cosigners: listCosigners(),
     apiUsers: listApiUsers(),
-  });
+  };
+}
+
+export async function GET() {
+  return NextResponse.json(snapshot());
 }
 
 export async function POST(request: Request) {
@@ -28,16 +32,15 @@ export async function POST(request: Request) {
   };
   if (body.action === "reset") {
     resetStore();
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(snapshot());
   }
   if (body.action === "pair") {
     if (!body.userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
     }
     try {
-      return NextResponse.json(
-        pairApiUser(body.userId, body.cosignerId ?? null, body.callbackEnabled),
-      );
+      pairApiUser(body.userId, body.cosignerId ?? null, body.callbackEnabled);
+      return NextResponse.json(snapshot());
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to pair";
       return NextResponse.json({ error: message }, { status: 400 });

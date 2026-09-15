@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -26,8 +25,7 @@ export function RequestDetailView({
   id: string;
   initial: SignRequest;
 }) {
-  const router = useRouter();
-  const { data, error, loading, reload } = useJson<SignRequest>(
+  const { data, error, loading, setData } = useJson<SignRequest>(
     `/api/queue/${id}`,
     2000,
     initial,
@@ -43,11 +41,10 @@ export function RequestDetailView({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action, reason: reason || undefined }),
       });
-      const body = await response.json();
+      const body = (await response.json()) as SignRequest & { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Decision failed");
+      setData(body);
       toast.success(`Returned ${action} to the Co-Signer`);
-      await reload();
-      router.refresh();
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Decision failed");
     } finally {
@@ -166,12 +163,14 @@ export function RequestDetailView({
               />
               <div className="flex flex-wrap gap-2">
                 <Button
+                  type="button"
                   onClick={() => void decide("APPROVE")}
                   disabled={!pending || busy !== null}
                 >
                   {busy === "APPROVE" ? "Signing…" : "Approve & sign"}
                 </Button>
                 <Button
+                  type="button"
                   variant="destructive"
                   onClick={() => void decide("REJECT")}
                   disabled={!pending || busy !== null}
@@ -180,6 +179,7 @@ export function RequestDetailView({
                 </Button>
                 {data.kind !== "tx_sign" ? (
                   <Button
+                    type="button"
                     variant="outline"
                     onClick={() => void decide("IGNORE")}
                     disabled={!pending || busy !== null}
