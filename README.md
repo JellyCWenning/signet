@@ -30,7 +30,7 @@ await routeVenueFunds({
 });
 ```
 
-Flow: `POST /api/fireblocks/vault/ensure` can pull a vault buffer from Hyperliquid first. Then `routeVenueFunds` / `POST /api/fireblocks/route` does Relay `quote/v2` + Fireblocks **CONTRACT_CALL** `USDC.approve` (skips if leftover allowance) + **CONTRACT_CALL** `depositErc20`. A naked ERC20 TRANSFER to `0x4cd00e…` does **not** credit Lighter (tx `0x92de68a8…`). Do **not** use `POST /api/fireblocks/send` (venue remaining-margin TAP blocks healthy accounts).
+Flow: `POST /api/fireblocks/vault/ensure` can pull a vault buffer from Hyperliquid first. Then `routeVenueFunds` / `POST /api/fireblocks/route` does Relay `quote/v2` + Fireblocks **CONTRACT_CALL** `USDC.approve` (skips if leftover allowance) + **CONTRACT_CALL** `depositErc20`. Reverse is the same two hops the other way: Lighter L2 → vault, then vault TRANSFER to Hyperliquid Bridge2 (hop 1 still needs a Lighter API key). A naked ERC20 TRANSFER to `0x4cd00e…` does **not** credit Lighter (tx `0x92de68a8…`). Do **not** use `POST /api/fireblocks/send` (venue remaining-margin TAP blocks healthy accounts).
 
 Add another Fireblocks account:
 
