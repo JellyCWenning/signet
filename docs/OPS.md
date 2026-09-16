@@ -57,12 +57,23 @@ Never commit that file.
 
 Tokyo TAP is HTTP only. HTTPS later via ACM / ALB or an nginx certificate.
 
+`tap-console.service` loads `/opt/tap-console/.env.local` if that file exists (`EnvironmentFile=-/opt/tap-console/.env.local`). Next.js also reads it from the working directory. The host currently has no Fireblocks JWT until someone pastes on `/policy` or writes `.env.local`.
+
 ### SSH / deploy
 
 ```bash
-ssh ec2-user@13.196.167.126
+ssh -i "$TOKYO_KEY" ec2-user@13.196.167.126
 systemctl status tap-console nginx
-cd /opt/tap-console && git pull && npm ci && npm run build && sudo systemctl restart tap-console
+cd /opt/tap-console
+git fetch origin cursor/ops-handover-ba95
+git checkout -B cursor/ops-handover-ba95 FETCH_HEAD
+npm ci && npm run build && sudo systemctl restart tap-console
+```
+
+After merge to `main`, switch the host back:
+
+```bash
+cd /opt/tap-console && git fetch origin && git checkout main && git pull && npm ci && npm run build && sudo systemctl restart tap-console
 ```
 
 ---
