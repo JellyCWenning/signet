@@ -91,7 +91,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
       <PageHeader
         eyebrow="TAP Console"
         title="Trigger thresholds"
-        description="Experiment with Albert Hyperliquid and Albert Lighter only. Set margin trigger and max single transfer against live balances."
+        description="Set margin trigger and max single transfer against live balances for Albert and Fireblocks-bound Hyperliquid / Lighter."
         actions={
           <div className="flex flex-col items-end gap-1">
             <Button type="button" variant="outline" disabled={refreshing} onClick={() => void refreshBalances()}>
@@ -108,7 +108,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
         <SummaryCard
           label="Accounts"
           value={venues.length}
-          hint="Albert Hyperliquid · Albert Lighter"
+          hint="Albert + Fireblocks Hyperliquid / Lighter"
         />
         <SummaryCard
           label="Armed now"

@@ -14,8 +14,10 @@ Edit **account margin** (remaining %) and **max single transfer** at `/`.
 
 Seeded accounts:
 
-- `hyperliquid_albert` — Albert Hyperliquid, address `0x952e…4956`
-- `lighter_albert` — Albert Lighter, `account_index` **732041**, `api_key_index` 4
+- `hyperliquid_albert` — Albert Hyperliquid, address `0x952eFBB40F0886BD9474Ff10eE0893fB0C604956`
+- `lighter_albert` — Albert Lighter, L1 `0x952eFBB40F0886BD9474Ff10eE0893fB0C604956`, `account_index` **732041**, `api_key_index` 4
+- `hyperliquid_fireblocks` — Fireblocks Hyperliquid, vault 3 (Eason Albert) address `0x6759b70EA668e076180c06085d51449FB0d7EE90`
+- `lighter_fireblocks` — Fireblocks Lighter, same L1, `account_index` **747083**
 
 Add more Hyperliquid / Lighter **read-only** watch accounts at `/accounts` (public address or account index only; not Fireblocks vaults). They persist in `accounts.local.json` on the host.
 
