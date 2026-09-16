@@ -1,4 +1,4 @@
-export type VenueId = "hyperliquid" | "lighter" | "mexc";
+export type ExchangeId = "hyperliquid" | "lighter" | "mexc";
 
 export type VenueKind = "perp" | "cex";
 
@@ -12,8 +12,8 @@ export interface CredentialField {
   hint: string;
 }
 
-export interface VenueCatalogEntry {
-  id: VenueId;
+export interface ExchangeCatalogEntry {
+  id: ExchangeId;
   name: string;
   kind: VenueKind;
   blurb: string;
@@ -21,14 +21,18 @@ export interface VenueCatalogEntry {
 }
 
 export interface VenueThresholds {
-  /** Trigger a top-up when account margin ratio (%) is at or below this value. */
+  /** Trigger a top-up when remaining margin (%) is at or below this value. */
   marginTriggerPct: number;
   /** Cap for one Fireblocks transfer used to refill this account, in USD. */
   maxTransferUsd: number;
 }
 
 export interface VenueRecord {
-  id: VenueId;
+  id: string;
+  exchange: ExchangeId;
+  displayName: string;
+  tags: string[];
+  useDemo: boolean;
   enabled: boolean;
   thresholds: VenueThresholds;
   credentials: Record<string, string>;
@@ -51,9 +55,12 @@ export interface VenueLiveState {
 }
 
 export interface VenueSnapshot {
-  id: VenueId;
+  id: string;
+  exchange: ExchangeId;
   name: string;
   kind: VenueKind;
+  tags: string[];
+  useDemo: boolean;
   blurb: string;
   enabled: boolean;
   thresholds: VenueThresholds;
@@ -67,7 +74,7 @@ export interface VenueSnapshot {
 }
 
 export interface TransferTapDecision {
-  venueId: VenueId;
+  venueId: string;
   allowed: boolean;
   armed: boolean;
   amountUsd: number;
@@ -75,26 +82,26 @@ export interface TransferTapDecision {
   reasons: string[];
 }
 
-export const VENUE_CATALOG: VenueCatalogEntry[] = [
+export const EXCHANGE_CATALOG: ExchangeCatalogEntry[] = [
   {
     id: "hyperliquid",
     name: "Hyperliquid",
     kind: "perp",
-    blurb: "Perp DEX. Live client will read clearinghouse state for the account.",
+    blurb: "Reads clearinghouseState from the Hyperliquid info API.",
     credentialFields: [
       {
-        key: "walletAddress",
+        key: "account_address",
         label: "Account address",
         type: "text",
         required: true,
-        hint: "Hyperliquid user address used for info queries",
+        hint: "Hyperliquid user address",
       },
       {
-        key: "agentKey",
-        label: "Agent / API wallet key",
-        type: "password",
-        required: false,
-        hint: "Optional. Needed later for live trading, not for reading margin",
+        key: "base_url",
+        label: "Base URL",
+        type: "text",
+        required: true,
+        hint: "https://api.hyperliquid.xyz",
       },
     ],
   },
@@ -102,28 +109,42 @@ export const VENUE_CATALOG: VenueCatalogEntry[] = [
     id: "lighter",
     name: "Lighter",
     kind: "perp",
-    blurb: "Perp DEX. Live client will use the Lighter account API.",
+    blurb: "Reads account by index from the Lighter REST API.",
     credentialFields: [
       {
-        key: "accountId",
-        label: "Account id",
+        key: "base_url",
+        label: "Base URL",
         type: "text",
         required: true,
-        hint: "Lighter account identifier",
+        hint: "https://mainnet.zklighter.elliot.ai",
       },
       {
-        key: "apiKey",
-        label: "API key",
-        type: "password",
-        required: true,
-        hint: "Lighter API key",
+        key: "l1_address",
+        label: "L1 address",
+        type: "text",
+        required: false,
+        hint: "Used to resolve account_index",
       },
       {
-        key: "apiSecret",
-        label: "API secret",
-        type: "password",
+        key: "account_index",
+        label: "Account index",
+        type: "text",
         required: true,
-        hint: "Lighter API secret",
+        hint: "Lighter integer account index",
+      },
+      {
+        key: "api_key_index",
+        label: "API key index",
+        type: "text",
+        required: false,
+        hint: "e.g. 4",
+      },
+      {
+        key: "api_pub_key",
+        label: "API public key",
+        type: "text",
+        required: false,
+        hint: "Lighter API public key at that index",
       },
     ],
   },
@@ -131,7 +152,7 @@ export const VENUE_CATALOG: VenueCatalogEntry[] = [
     id: "mexc",
     name: "MEXC",
     kind: "cex",
-    blurb: "CEX futures. Live client will use the MEXC signed REST account endpoint.",
+    blurb: "Waiting on MEXC API key and secret.",
     credentialFields: [
       {
         key: "apiKey",
@@ -151,33 +172,58 @@ export const VENUE_CATALOG: VenueCatalogEntry[] = [
   },
 ];
 
-export function catalogEntry(id: VenueId): VenueCatalogEntry {
-  const found = VENUE_CATALOG.find((item) => item.id === id);
-  if (!found) throw new Error(`Unknown venue ${id}`);
+export function exchangeCatalog(id: ExchangeId): ExchangeCatalogEntry {
+  const found = EXCHANGE_CATALOG.find((item) => item.id === id);
+  if (!found) throw new Error(`Unknown exchange ${id}`);
   return found;
 }
 
-export function isVenueId(value: string): value is VenueId {
-  return VENUE_CATALOG.some((item) => item.id === value);
+export function isExchangeId(value: string): value is ExchangeId {
+  return EXCHANGE_CATALOG.some((item) => item.id === value);
 }
+
+/** Albert Lighter account_index resolved from L1 0x952e… via accountsByL1Address. */
+export const LIGHTER_ALBERT_ACCOUNT_INDEX = "732041";
 
 export function defaultVenueRecords(): VenueRecord[] {
   return [
     {
-      id: "hyperliquid",
+      id: "hyperliquid_albert",
+      exchange: "hyperliquid",
+      displayName: "Albert Hyperliquid",
+      tags: ["ALBERT"],
+      useDemo: false,
       enabled: true,
       thresholds: { marginTriggerPct: 15, maxTransferUsd: 25_000 },
-      credentials: {},
+      credentials: {
+        account_address: "0x952eFBB40F0886BD9474Ff10eE0893fB0C604956",
+        base_url: "https://api.hyperliquid.xyz",
+      },
     },
     {
-      id: "lighter",
+      id: "lighter_albert",
+      exchange: "lighter",
+      displayName: "Albert Lighter",
+      tags: ["ALBERT"],
+      useDemo: false,
       enabled: true,
       thresholds: { marginTriggerPct: 18, maxTransferUsd: 15_000 },
-      credentials: {},
+      credentials: {
+        base_url: "https://mainnet.zklighter.elliot.ai",
+        l1_address: "0x952eFBB40F0886BD9474Ff10eE0893fB0C604956",
+        account_index: LIGHTER_ALBERT_ACCOUNT_INDEX,
+        api_key_index: "4",
+        api_pub_key:
+          "6fe69e255080e201e6c9142272ecb22a27f1d52b9dc69c5e54ba4c41e845ee9a9794c5326eb54f9d",
+      },
     },
     {
       id: "mexc",
-      enabled: true,
+      exchange: "mexc",
+      displayName: "MEXC",
+      tags: [],
+      useDemo: false,
+      enabled: false,
       thresholds: { marginTriggerPct: 12, maxTransferUsd: 10_000 },
       credentials: {},
     },
@@ -185,19 +231,19 @@ export function defaultVenueRecords(): VenueRecord[] {
 }
 
 export function requiredCredentialsSet(
-  id: VenueId,
+  exchange: ExchangeId,
   credentials: Record<string, string>,
 ): boolean {
-  return catalogEntry(id).credentialFields
-    .filter((field) => field.required)
+  return exchangeCatalog(exchange)
+    .credentialFields.filter((field) => field.required)
     .every((field) => Boolean(credentials[field.key]?.trim()));
 }
 
 export function credentialHints(
-  id: VenueId,
+  exchange: ExchangeId,
   credentials: Record<string, string>,
 ): CredentialHint[] {
-  return catalogEntry(id).credentialFields.map((field) => {
+  return exchangeCatalog(exchange).credentialFields.map((field) => {
     const value = credentials[field.key]?.trim() ?? "";
     return {
       key: field.key,
@@ -206,6 +252,11 @@ export function credentialHints(
       last4: value.length >= 4 ? value.slice(-4) : value || undefined,
     };
   });
+}
+
+export function remainingMarginPct(equityUsd: number, availableUsd: number): number {
+  if (equityUsd <= 0) return 0;
+  return (availableUsd / equityUsd) * 100;
 }
 
 export function evaluateTransfer(input: {
@@ -219,7 +270,7 @@ export function evaluateTransfer(input: {
   const capped = Math.min(Math.max(input.amountUsd, 0), input.thresholds.maxTransferUsd);
 
   if (!input.enabled) {
-    reasons.push("Venue is disabled in TAP Console");
+    reasons.push("Account is disabled in TAP Console");
   }
   if (!armed) {
     reasons.push(
@@ -240,7 +291,11 @@ export function evaluateTransfer(input: {
     allowed,
     armed,
     amountUsd: input.amountUsd,
-    cappedAmountUsd: allowed ? (input.amountUsd > input.thresholds.maxTransferUsd ? capped : input.amountUsd) : 0,
+    cappedAmountUsd: allowed
+      ? input.amountUsd > input.thresholds.maxTransferUsd
+        ? capped
+        : input.amountUsd
+      : 0,
     reasons,
   };
 }

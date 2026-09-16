@@ -8,9 +8,15 @@ Live diagram: `/flow`. Venue TAP Console: `/console`. Fireblocks TAP how-to: `/p
 
 ## TAP Console (venue triggers)
 
-Edit **account margin** (trigger %) and **max single transfer** for Hyperliquid, Lighter, and MEXC at `/console`.
+Edit **account margin** (remaining %) and **max single transfer** at `/console`.
 
-When live margin ratio is at or below the trigger, the bot may send a Fireblocks transfer up to that venue’s max. Fireblocks TAP still has to ALLOW the transfer.
+Seeded accounts:
+
+- `hyperliquid_albert` — Albert Hyperliquid, address `0x952e…4956`
+- `lighter_albert` — Albert Lighter, `account_index` **732041** (resolved from that L1 via `accountsByL1Address`), `api_key_index` 4
+- `mexc` — waiting on keys
+
+When remaining margin is at or below the trigger, the bot may send a Fireblocks transfer up to that account’s max. Fireblocks TAP still has to ALLOW the transfer.
 
 | Method | Path | Purpose |
 | --- | --- | --- |

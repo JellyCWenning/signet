@@ -1,90 +1,138 @@
-import type { VenueId, VenueLiveState } from "@/lib/venues";
-import { requiredCredentialsSet } from "@/lib/venues";
+import {
+  remainingMarginPct,
+  type ExchangeId,
+  type VenueLiveState,
+} from "@/lib/venues";
 
-/**
- * Venue adapters. Live HTTP is not wired until credentials are provided.
- * Each client must keep secrets in the argument object — never log them.
- */
+const FETCH_MS = 8_000;
+
+function num(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function getJson(url: string, init?: RequestInit): Promise<unknown> {
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_MS) });
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
 export interface VenueClient {
-  id: VenueId;
+  exchange: ExchangeId;
   fetchAccount(credentials: Record<string, string>): Promise<VenueLiveState>;
 }
 
-const MOCK: Record<VenueId, VenueLiveState> = {
-  hyperliquid: {
-    equityUsd: 1_240_000,
-    usedMarginUsd: 186_000,
-    availableUsd: 1_054_000,
-    marginRatioPct: 12.4,
-    source: "mock",
-  },
-  lighter: {
-    equityUsd: 420_000,
-    usedMarginUsd: 84_000,
-    availableUsd: 336_000,
-    marginRatioPct: 22.1,
-    source: "mock",
-  },
-  mexc: {
-    equityUsd: 310_000,
-    usedMarginUsd: 86_800,
-    availableUsd: 223_200,
-    marginRatioPct: 9.6,
-    source: "mock",
-  },
-};
-
-async function mockState(id: VenueId, note?: string): Promise<VenueLiveState> {
-  return {
-    ...MOCK[id],
-    source: "mock",
-    error: note,
-  };
-}
-
 class HyperliquidClient implements VenueClient {
-  id = "hyperliquid" as const;
+  exchange = "hyperliquid" as const;
 
   async fetchAccount(credentials: Record<string, string>): Promise<VenueLiveState> {
-    if (!requiredCredentialsSet(this.id, credentials)) {
-      return mockState(this.id, "Waiting on Hyperliquid account address");
+    const user = credentials.account_address?.trim();
+    const base = (credentials.base_url || "https://api.hyperliquid.xyz").replace(/\/$/, "");
+    if (!user) {
+      return empty("Waiting on Hyperliquid account_address");
     }
-    // Live path: POST https://api.hyperliquid.xyz/info
-    // body { type: "clearinghouseState", user: credentials.walletAddress }
-    return mockState(this.id, "Hyperliquid live client stubbed — using mock balances");
+    try {
+      const raw = (await getJson(`${base}/info`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "clearinghouseState", user }),
+      })) as {
+        marginSummary?: { accountValue?: string; totalMarginUsed?: string };
+        withdrawable?: string;
+      };
+      const equityUsd = num(raw.marginSummary?.accountValue);
+      const usedMarginUsd = num(raw.marginSummary?.totalMarginUsed);
+      const availableUsd = num(raw.withdrawable);
+      return {
+        equityUsd,
+        usedMarginUsd,
+        availableUsd,
+        marginRatioPct: remainingMarginPct(equityUsd, availableUsd),
+        source: "live",
+      };
+    } catch (error) {
+      return empty(
+        error instanceof Error ? `Hyperliquid: ${error.message}` : "Hyperliquid fetch failed",
+      );
+    }
   }
 }
 
 class LighterClient implements VenueClient {
-  id = "lighter" as const;
+  exchange = "lighter" as const;
 
   async fetchAccount(credentials: Record<string, string>): Promise<VenueLiveState> {
-    if (!requiredCredentialsSet(this.id, credentials)) {
-      return mockState(this.id, "Waiting on Lighter API key, secret, and account id");
+    const base = (credentials.base_url || "https://mainnet.zklighter.elliot.ai").replace(
+      /\/$/,
+      "",
+    );
+    const index = credentials.account_index?.trim();
+    if (!index) {
+      return empty("Waiting on Lighter account_index");
     }
-    // Live path: Lighter REST account endpoint with API key signing.
-    return mockState(this.id, "Lighter live client stubbed — using mock balances");
+    try {
+      const raw = (await getJson(
+        `${base}/api/v1/account?by=index&value=${encodeURIComponent(index)}`,
+      )) as {
+        accounts?: Array<{
+          collateral?: string;
+          available_balance?: string;
+          positions?: Array<{ allocated_margin?: string }>;
+        }>;
+      };
+      const account = raw.accounts?.[0];
+      if (!account) {
+        return empty("Lighter account not found");
+      }
+      const equityUsd = num(account.collateral);
+      const usedMarginUsd = (account.positions ?? []).reduce(
+        (sum, position) => sum + num(position.allocated_margin),
+        0,
+      );
+      const availableUsd = num(account.available_balance);
+      return {
+        equityUsd,
+        usedMarginUsd,
+        availableUsd,
+        marginRatioPct: remainingMarginPct(equityUsd, availableUsd),
+        source: "live",
+      };
+    } catch (error) {
+      return empty(error instanceof Error ? `Lighter: ${error.message}` : "Lighter fetch failed");
+    }
   }
 }
 
 class MexcClient implements VenueClient {
-  id = "mexc" as const;
+  exchange = "mexc" as const;
 
   async fetchAccount(credentials: Record<string, string>): Promise<VenueLiveState> {
-    if (!requiredCredentialsSet(this.id, credentials)) {
-      return mockState(this.id, "Waiting on MEXC API key and secret");
+    if (!credentials.apiKey || !credentials.apiSecret) {
+      return empty("Waiting on MEXC API key and secret");
     }
-    // Live path: MEXC futures signed GET /api/v1/account
-    return mockState(this.id, "MEXC live client stubbed — using mock balances");
+    return empty("MEXC live client stubbed — using empty balances");
   }
 }
 
-const CLIENTS: Record<VenueId, VenueClient> = {
+function empty(error: string): VenueLiveState {
+  return {
+    equityUsd: 0,
+    usedMarginUsd: 0,
+    availableUsd: 0,
+    marginRatioPct: 0,
+    source: "error",
+    error,
+  };
+}
+
+const CLIENTS: Record<ExchangeId, VenueClient> = {
   hyperliquid: new HyperliquidClient(),
   lighter: new LighterClient(),
   mexc: new MexcClient(),
 };
 
-export function getVenueClient(id: VenueId): VenueClient {
-  return CLIENTS[id];
+export function getVenueClient(exchange: ExchangeId): VenueClient {
+  return CLIENTS[exchange];
 }

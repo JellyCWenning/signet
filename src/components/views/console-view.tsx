@@ -30,7 +30,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
       <PageHeader
         eyebrow="TAP Console"
         title="Trigger thresholds"
-        description="Account margin and max single transfer for Hyperliquid, Lighter, and MEXC. Venue APIs are stubbed until credentials are wired."
+        description="Albert Hyperliquid and Lighter are live. Adjust account margin and max single transfer. MEXC is waiting on API keys."
         actions={
           <Button type="button" variant="outline" onClick={() => void reload()}>
             Refresh balances
@@ -42,7 +42,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
         <SummaryCard
           label="Venues"
           value={venues.length}
-          hint="Hyperliquid · Lighter · MEXC"
+          hint="Albert Hyperliquid · Albert Lighter · MEXC"
         />
         <SummaryCard
           label="Armed now"
@@ -157,7 +157,11 @@ function VenueCard({
       <CardHeader className="border-b">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardDescription>{venue.kind === "perp" ? "Perp DEX" : "CEX"}</CardDescription>
+            <CardDescription>
+              {venue.exchange}
+              {venue.tags.length ? ` · ${venue.tags.join(" · ")}` : ""}
+              {venue.live.source === "live" ? " · live" : ""}
+            </CardDescription>
             <CardTitle>{venue.name}</CardTitle>
           </div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -169,7 +173,10 @@ function VenueCard({
             />
           </label>
         </div>
-        <p className="text-xs text-muted-foreground">{venue.blurb}</p>
+          <p className="text-xs text-muted-foreground">
+            {venue.id}
+            {venue.kind === "perp" ? " · perp" : " · cex"}
+          </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
@@ -196,8 +203,8 @@ function VenueCard({
             />
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Trigger {trigger}% · equity {formatUsd(venue.live.equityUsd)} · used{" "}
-            {formatUsd(venue.live.usedMarginUsd)}
+            Trigger {trigger}% · equity {formatUsd(venue.live.equityUsd, true)} · used{" "}
+            {formatUsd(venue.live.usedMarginUsd, true)}
           </p>
         </div>
 
