@@ -185,7 +185,10 @@ export function isExchangeId(value: string): value is ExchangeId {
   return EXCHANGE_CATALOG.some((item) => item.id === value);
 }
 
-/** Fireblocks vault 3 (Eason Albert) deposit address, used as Hyperliquid + Lighter L1. */
+/**
+ * Fireblocks vault 3 (Eason Albert) deposit address, used as Hyperliquid + Lighter L1.
+ * Keep in sync with `DESK_RAILS` in `fireblocks-desk.ts` when adding another vault.
+ */
 export const FIREBLOCKS_VAULT_ADDRESS = "0x6759b70EA668e076180c06085d51449FB0d7EE90";
 
 /** Lighter account_index for FIREBLOCKS_VAULT_ADDRESS via accountsByL1Address. */

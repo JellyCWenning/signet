@@ -180,6 +180,11 @@ function asTx(value: unknown): FireblocksTx {
     destination: asParty(rec.destination),
     txHash: rec.txHash != null ? String(rec.txHash) : undefined,
     externalTxId: rec.externalTxId != null ? String(rec.externalTxId) : undefined,
+    createdBy: rec.createdBy != null ? String(rec.createdBy) : undefined,
+    signedBy: Array.isArray(rec.signedBy) ? rec.signedBy.map((id) => String(id)) : undefined,
+    rejectedBy: rec.rejectedBy != null ? String(rec.rejectedBy) : undefined,
+    subStatus: rec.subStatus != null ? String(rec.subStatus) : undefined,
+    operation: rec.operation != null ? String(rec.operation) : undefined,
   };
 }
 

@@ -38,6 +38,8 @@ export interface FireblocksParty {
 export interface FireblocksTx {
   id: string;
   status: string;
+  subStatus?: string;
+  operation?: string;
   assetId?: string;
   amount?: string;
   note?: string;
@@ -47,6 +49,9 @@ export interface FireblocksTx {
   destination?: FireblocksParty;
   txHash?: string;
   externalTxId?: string;
+  createdBy?: string;
+  signedBy?: string[];
+  rejectedBy?: string;
 }
 
 export interface FireblocksRuleRow {

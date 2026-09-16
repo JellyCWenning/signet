@@ -3,12 +3,43 @@
 Live venue TAP for Fireblocks-bound Hyperliquid / Lighter. The Tokyo HTTP desk does **not** accept RSA PEMs and does **not** edit Fireblocks TAP.
 
 TAP UI: http://13.196.167.126/ — Console + Accounts. Other leftover paths redirect here.
-Co-Signer: us-east-1 `i-0726e50457f1cf8b2` Nitro, paired to API user `c49cc13a-b267-48eb-876c-37e4bc1eb07a`, callback off
-Blocker: workspace Owner must approve the MPC key-share in the Fireblocks mobile app within 120 hours, then confirm Co-signers tab is Online
+Co-Signer: us-east-1 `i-0726e50457f1cf8b2` Nitro, paired to API user `c49cc13a-b267-48eb-876c-37e4bc1eb07a`, callback off, Online. Auto-sign proven for TRANSFER + TYPED_MESSAGE.
 
 Fireblocks JWT is host env only (`FIREBLOCKS_API_KEY` / `FIREBLOCKS_SECRET_KEY` in `/opt/tap-console/.env.local`). Workspace TAP (ALLOW / BLOCK / 2-TIER) is edited in [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor.
 
 **Manual:** [docs/MANUAL.md](docs/MANUAL.md) · **Ops (do not mix machines):** [docs/OPS.md](docs/OPS.md)
+
+## Reuse: venue-to-venue USDC (any Fireblocks vault on this flow)
+
+Hyperliquid ↔ Lighter on one Fireblocks L1 is encapsulated. Later accounts copy a catalog row; they do not rewrite signing.
+
+| Piece | Where |
+| --- | --- |
+| Catalog | `src/lib/fireblocks-desk.ts` → `DESK_RAILS` |
+| One call | `routeVenueFunds` in `src/lib/fireblocks-rails.ts` |
+| HTTP | `GET /api/fireblocks/desk` · `POST /api/fireblocks/route` |
+| Checks | `npm run check:rails` |
+
+```ts
+import { routeVenueFunds } from "@/lib/fireblocks-rails";
+
+await routeVenueFunds({
+  fromVenueId: "hyperliquid_fireblocks",
+  toVenueId: "lighter_fireblocks",
+  amount: "1",
+});
+```
+
+Flow: if the vault is short, Co-Signer signs Hyperliquid `withdraw3` (TYPED_MESSAGE, plus **$1** HL fee) → wait for `USDC_ARB` → TRANSFER to the allowlisted dest. If the vault already has enough, only TRANSFER. Do **not** use `POST /api/fireblocks/send` for this (venue remaining-margin TAP blocks healthy accounts).
+
+Add another Fireblocks account:
+
+1. Allowlist dest wallets in Fireblocks Console.
+2. TAP ALLOW for TRANSFER **and** TYPED_MESSAGE, designated signer = the paired API user, Co-Signer Online, callback off.
+3. Add a `DESK_RAILS` row + matching `venues.ts` seeds.
+4. `POST /api/fireblocks/route` with the new venue ids.
+
+Full cookbook: [docs/MANUAL.md](docs/MANUAL.md#venue-to-venue-routing-reuse-this).
 
 ## Do not mix
 

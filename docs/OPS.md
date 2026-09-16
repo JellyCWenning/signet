@@ -6,8 +6,7 @@ Workspace: Fireblocks Global · Bluering Trading · console.fireblocks.io
 AWS account: `321953280180`
 
 TAP UI: http://13.196.167.126/ (Tokyo t3.small `i-029023e02658d5cb2`)
-Co-Signer: us-east-1 `i-0726e50457f1cf8b2` Nitro, paired to API user `c49cc13a-b267-48eb-876c-37e4bc1eb07a`, callback off
-Blocker: workspace Owner must approve the MPC key-share in the Fireblocks mobile app within 120 hours, then confirm Co-signers tab is Online
+Co-Signer: us-east-1 `i-0726e50457f1cf8b2` Nitro, paired to API user `c49cc13a-b267-48eb-876c-37e4bc1eb07a`, callback off, Online. Auto-sign proven.
 
 In-app `/ops` and `/policy` were removed. This HTTP desk does not accept RSA and does not edit Fireblocks TAP.
 
@@ -114,13 +113,14 @@ tail -f /var/log/customer_cosigner.log
 
 ## Operator sequence (after pairing)
 
-1. Owner approves the MPC key-share in the Fireblocks mobile app (120 hours). Without this, auto-sign cannot start.
+1. Confirm Developer Center → Co-signers is Online and the API user is paired. Without this, auto-sign cannot start.
 2. Console: Developer Center → Co-signers → Online, API user paired.
 3. Fireblocks Console TAP: ALLOW + designated signer (workspace TAP, not Tokyo venue TAP).
 4. JWT already on Tokyo in `/opt/tap-console/.env.local`. Do not paste RSA into the website.
 5. Small ALLOW transfer from Tokyo `/` or a bot. Mobile should not be required unless TAP is 2-TIER.
-6. Rotate keys that appeared in chat: delete IAM user `cursor-temp-cosigner` access keys; revoke any GitHub PAT used to push this repo. Do not commit those values.
-7. HTTPS for Tokyo TAP when you are ready (ACM / ALB or nginx cert).
+6. Venue-to-venue (HL ↔ Lighter, or a later vault on the same flow): `POST /api/fireblocks/route` — not `/send`. TAP must ALLOW **TRANSFER** and **TYPED_MESSAGE**. Catalog is `src/lib/fireblocks-desk.ts`. See MANUAL.
+7. Rotate keys that appeared in chat: delete IAM user `cursor-temp-cosigner` access keys; revoke any GitHub PAT used to push this repo. Do not commit those values.
+8. HTTPS for Tokyo TAP when you are ready (ACM / ALB or nginx cert).
 
 ---
 

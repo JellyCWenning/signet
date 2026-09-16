@@ -56,7 +56,11 @@ JWT comes from host env only. This HTTP site is not a place to paste RSA.
 | `GET` | `/api/fireblocks/transactions` | `GET /v1/transactions` |
 | `GET` | `/api/fireblocks/transactions/:id` | `GET /v1/transactions/:id` |
 | `POST` | `/api/fireblocks/transactions` | `POST /v1/transactions` TRANSFER |
-| `POST` | `/api/fireblocks/send` | Venue TAP gate, then create transfer |
+| `POST` | `/api/fireblocks/send` | Venue TAP gate, then create transfer. **Not** for HL ↔ Lighter routing (healthy remaining margin blocks it). |
+| `GET` | `/api/fireblocks/desk` | Desk rails catalog + how to add another Fireblocks account |
+| `POST` | `/api/fireblocks/route` | Venue-to-venue USDC on one vault (`from`, `to`, `amount`) |
+| `POST` | `/api/fireblocks/typed-message` | `POST /v1/transactions` TYPED_MESSAGE (EIP-712) |
+| `POST` | `/api/fireblocks/hyperliquid/withdraw` | Sign `withdraw3` via Co-Signer, POST Hyperliquid `/exchange` |
 
 A Signer bot can create transfers. Reading / editing Fireblocks TAP needs Owner / Admin / Non-Signing Admin in the **Fireblocks Console**. Publish still needs mobile approval.
 
@@ -225,6 +229,83 @@ This desk can also submit that same `POST /v1/transactions` from Console **Send 
 
 ---
 
+## Venue-to-venue routing (reuse this)
+
+Hyperliquid ↔ Lighter on the **same** Fireblocks L1 is a two-stage path. The 1 USDC Hyperliquid → Lighter auto-sign is the proven sample. Later Fireblocks accounts use the **same** catalog + Co-Signer flow — add a rail, do not copy-paste transaction JSON.
+
+Do **not** use `POST /api/fireblocks/send` for this. That endpoint is venue TAP (remaining-margin trigger + max transfer). Healthy accounts sit at ~100% remaining, so `/send` blocks. Routing goes through Fireblocks TAP + Co-Signer only.
+
+```mermaid
+flowchart TD
+  A[POST /api/fireblocks/route] --> B{Vault has enough USDC_ARB?}
+  B -->|yes| T[TRANSFER to allowlisted dest]
+  B -->|no and from Hyperliquid| W[TYPED_MESSAGE withdraw3 + $1 HL fee]
+  W --> H[POST Hyperliquid /exchange]
+  H --> V[Wait until vault USDC_ARB covers amount]
+  V --> T
+  T --> C[Co-Signer auto-sign — callback off]
+```
+
+| Stage | What | Why |
+| --- | --- | --- |
+| `TYPED_MESSAGE` | EIP-712 `HyperliquidTransaction:Withdraw` signed by the vault | Hyperliquid `withdraw3` is not a Fireblocks TRANSFER. Co-Signer must cover **TYPED_MESSAGE**. |
+| Hyperliquid `/exchange` | Broadcast `withdraw3` with `v = 27 + sig.v` | Moves USDC from HL to the vault L1 on Arbitrum. HL charges **$1** on top of the requested amount. |
+| Wait vault | Poll `USDC_ARB_3SBJ` available | Bridging/credit can take minutes. |
+| `TRANSFER` | Vault → allowlisted EXTERNAL_WALLET | Lighter contract `ec38a57b-…` or Hyperliquid contract `0688ebcf-…`. |
+
+If the vault already holds enough `USDC_ARB`, routing skips withdraw and only TRANSFERs.
+
+Lighter → Hyperliquid: Lighter withdraw is **not** implemented. The vault must already hold the USDC; then TRANSFER to the Hyperliquid contract.
+
+### Library (import this)
+
+| File | Role |
+| --- | --- |
+| `src/lib/fireblocks-rails.ts` | Public barrel — `routeVenueFunds`, `DESK_RAILS` |
+| `src/lib/fireblocks-desk.ts` | Catalog. **Add a new Fireblocks account here.** |
+| `src/lib/fireblocks-route.ts` | Orchestrator `routeVenueFunds({ fromVenueId, toVenueId, amount })` |
+| `src/lib/fireblocks-tx.ts` | TRANSFER, TYPED_MESSAGE, wait, EIP-712 `r/s/v`, auto-sign assert |
+| `src/lib/hyperliquid-withdraw.ts` | EIP-712 typed data + Hyperliquid `/exchange` |
+
+Bot / later service:
+
+```ts
+import { routeVenueFunds } from "@/lib/fireblocks-rails";
+
+await routeVenueFunds({
+  fromVenueId: "hyperliquid_fireblocks",
+  toVenueId: "lighter_fireblocks",
+  amount: "1",
+});
+```
+
+HTTP (same thing, live USDC):
+
+```bash
+curl -sS http://127.0.0.1:43147/api/fireblocks/desk
+curl -sS -X POST http://127.0.0.1:43147/api/fireblocks/route \
+  -H 'content-type: application/json' \
+  -d '{"from":"hyperliquid_fireblocks","to":"lighter_fireblocks","amount":"1"}'
+```
+
+Proven sample (vault 3, API user `…b07a`, Co-Signer Online): TYPED_MESSAGE `faea8822-…` COMPLETED, Hyperliquid `ok`, TRANSFER `859345ad-…` txHash `0x92de68a8…e70a`.
+
+Catalog check (no network): `npm run check:rails`.
+
+### Add another Fireblocks account (same flow)
+
+1. **Fireblocks Console** — create / pick the vault. Copy the L1 deposit address. Allowlist destination wallets (Hyperliquid bridge contract, Lighter contract, …) as EXTERNAL_WALLET. Record each dest UUID.
+2. **TAP** — ALLOW for this vault, those dests, asset `USDC_ARB_*`, operations **TRANSFER** and **TYPED_MESSAGE**, **designated signer** = the paired API user. Co-signers Online. Callback URL empty. If TYPED_MESSAGE is missing, withdraw goes to mobile and comes back `REJECTED_BY_USER`.
+3. **TAP Console catalog** — add one row to `DESK_RAILS` in `src/lib/fireblocks-desk.ts` (`vaultId`, `l1Address`, `arbUsdcAssetId`, dest UUIDs, TAP venue ids).
+4. **TAP venues** — seed matching records in `src/lib/venues.ts` (`hyperliquid_*` address = L1, Lighter `account_index` from Lighter `accountsByL1Address`).
+5. **Call** `routeVenueFunds` or `POST /api/fireblocks/route` with the new venue ids. Do not add a second transaction builder.
+
+Cross-vault (two different L1s) is not wired. Same-vault only.
+
+JWT stays in host `/opt/tap-console/.env.local`. Never paste RSA into the HTTP UI. Venue TAP (`/`) and Fireblocks TAP (console.fireblocks.io) stay separate.
+
+---
+
 ## 6. Run this desk locally
 
 ```bash
@@ -254,4 +335,4 @@ See [OPS.md](OPS.md) for instance IDs, PCR8, IAM, and remaining Owner steps.
 
 This Tokyo desk is venue TAP + Fireblocks JWT only. The Nitro Co-Signer in `us-east-1` holds the customer MPC share. Do not attach the Co-Signer IAM role to Tokyo. Do not change the Co-Signer S3 bucket policy (Console Access Denied is expected).
 
-Blocker: workspace Owner must approve the MPC key-share in the Fireblocks mobile app within 120 hours, then confirm Developer Center → Co-signers is Online.
+Co-signers tab is Online. Auto-sign for TRANSFER and TYPED_MESSAGE is proven (callback off). Keep TAP ALLOW + designated signer when adding another vault.
