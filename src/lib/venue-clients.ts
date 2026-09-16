@@ -136,3 +136,18 @@ const CLIENTS: Record<ExchangeId, VenueClient> = {
 export function getVenueClient(exchange: ExchangeId): VenueClient {
   return CLIENTS[exchange];
 }
+
+export async function resolveLighterAccountIndex(
+  credentials: Record<string, string>,
+): Promise<string | null> {
+  const existing = credentials.account_index?.trim();
+  if (existing) return existing;
+  const l1 = credentials.l1_address?.trim();
+  if (!l1) return null;
+  const base = (credentials.base_url || "https://mainnet.zklighter.elliot.ai").replace(/\/$/, "");
+  const raw = (await getJson(
+    `${base}/api/v1/accountsByL1Address?l1_address=${encodeURIComponent(l1)}`,
+  )) as { sub_accounts?: Array<{ index?: number | string }> };
+  const index = raw.sub_accounts?.[0]?.index;
+  return index == null ? null : String(index);
+}

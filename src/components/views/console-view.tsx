@@ -290,6 +290,7 @@ function VenueCard({
             <CardDescription>
               {venue.exchange}
               {venue.tags.length ? ` · ${venue.tags.join(" · ")}` : ""}
+              {venue.readOnly ? " · watch" : ""}
               {venue.live.source === "live" ? " · live" : ""}
             </CardDescription>
             <CardTitle>{venue.name}</CardTitle>

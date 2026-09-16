@@ -4,7 +4,7 @@ This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts 
 
 It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/`. Fireblocks TAP: [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor. Ops: [OPS.md](OPS.md).
+Live Console: `/`. Accounts: `/accounts`. Fireblocks TAP: [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor. Ops: [OPS.md](OPS.md).
 
 ---
 
@@ -17,12 +17,16 @@ Seeded accounts:
 - `hyperliquid_albert` — Albert Hyperliquid, address `0x952e…4956`
 - `lighter_albert` — Albert Lighter, `account_index` **732041**, `api_key_index` 4
 
+Add more Hyperliquid / Lighter **read-only** watch accounts at `/accounts` (public address or account index only; not Fireblocks vaults). They persist in `accounts.local.json` on the host.
+
 When remaining margin is at or below the trigger, the bot may send a Fireblocks transfer up to that account’s max. Fireblocks TAP still has to ALLOW the transfer.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/venues` | List venues, live balances, thresholds |
+| `POST` | `/api/venues` | Add a read-only Hyperliquid / Lighter account |
 | `GET` | `/api/venues/:id` | One venue |
+| `DELETE` | `/api/venues/:id` | Remove a user-added watch account |
 | `PUT` | `/api/venues/:id/thresholds` | `{ enabled, marginTriggerPct, maxTransferUsd }` |
 | `PUT` | `/api/venues/:id/credentials` | Store API fields in process memory. Never written to disk. |
 | `POST` | `/api/venues/evaluate` | `{ venueId, amountUsd }` → allow / cap / reasons |
@@ -228,7 +232,7 @@ npm run dev
 
 Open [http://localhost:43147](http://localhost:43147).
 
-The only page is `/` (venue TAP + Send via Fireblocks). Other paths redirect here.
+The pages are `/` (venue TAP) and `/accounts` (read-only Hyperliquid / Lighter watch accounts). Other paths redirect to `/`.
 
 Venue TAP is in-memory. Fireblocks JWT is host env (`.env.local`).
 
