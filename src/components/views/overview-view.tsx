@@ -34,6 +34,9 @@ export function OverviewView({ initialVenues }: { initialVenues: ConsolePayload 
             <Button nativeButton={false} variant="outline" render={<Link href="/flow" />}>
               Flow
             </Button>
+            <Button nativeButton={false} variant="outline" render={<Link href="/ops" />}>
+              Ops
+            </Button>
           </div>
         }
       />
@@ -59,9 +62,12 @@ export function OverviewView({ initialVenues }: { initialVenues: ConsolePayload 
             <CardTitle className="text-base">Still required to auto-sign</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            TAP does not replace MPC. The bot still needs a Signer API user paired to a Fireblocks
-            API Co-Signer (SGX / Nitro / Confidential Space). Pair and host that in Fireblocks, not
-            here. Callback stays off.
+            TAP does not replace MPC. The Virginia Nitro Co-Signer is paired to the Signer API
+            user; callback is off. This Tokyo desk does not hold shards. Owner must still approve
+            the MPC key-share in the Fireblocks mobile app.{" "}
+            <Link href="/ops" className="text-teal-300 underline-offset-2 hover:underline">
+              Ops split
+            </Link>
           </CardContent>
         </Card>
       </section>

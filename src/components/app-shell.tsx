@@ -7,6 +7,7 @@ import {
   GitBranch,
   LayoutDashboard,
   Menu,
+  Server,
   Settings,
   Shield,
   SlidersHorizontal,
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/console", label: "Console", icon: SlidersHorizontal },
   { href: "/policy", label: "Fireblocks TAP", icon: Gavel },
   { href: "/flow", label: "Flow", icon: GitBranch },
+  { href: "/ops", label: "Ops", icon: Server },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

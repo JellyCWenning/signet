@@ -4,7 +4,7 @@ This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts 
 
 It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/console`. Flow: `/flow`. Fireblocks TAP (live API): `/policy`.
+Live Console: `/console`. Flow: `/flow`. Fireblocks TAP (live API): `/policy`. Ops split: `/ops` · [docs/OPS.md](OPS.md).
 
 ---
 
@@ -243,6 +243,7 @@ Open [http://localhost:43147](http://localhost:43147).
 | `/console` | Venue TAP + Send via Fireblocks |
 | `/policy` | Fireblocks credentials, TAP, vaults, transfers, txs |
 | `/flow` | Signing path through Fireblocks TAP and Co-Signer |
+| `/ops` | Tokyo vs Virginia split, remaining operator steps, what not to mix |
 | `/settings` | Same Fireblocks credentials form, reset Albert TAP |
 
 Venue and Fireblocks credentials are in-memory. A process restart drops pasted keys (env vars still load).
@@ -254,3 +255,13 @@ Venue and Fireblocks credentials are in-memory. A process restart drops pasted k
 Nothing against Fireblocks. The UUID is an identifier. Without the matching RSA private key there is no JWT, so no read TAP, no edit TAP, no create transaction, no pairing.
 
 Do not put `fireblocks_secret.key` or production API keys in this repository.
+
+---
+
+## Live machines (do not mix)
+
+See [OPS.md](OPS.md) for instance IDs, PCR8, IAM, and remaining Owner steps.
+
+This Tokyo desk is venue TAP + Fireblocks JWT only. The Nitro Co-Signer in `us-east-1` holds the customer MPC share. Do not attach the Co-Signer IAM role to Tokyo. Do not change the Co-Signer S3 bucket policy (Console Access Denied is expected).
+
+Blocker: workspace Owner must approve the MPC key-share in the Fireblocks mobile app within 120 hours, then confirm Developer Center → Co-signers is Online.

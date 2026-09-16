@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { FireblocksCredentialsCard } from "@/components/fireblocks-credentials-card";
@@ -62,7 +63,11 @@ export function SettingsView({
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             Do not configure a Callback Handler URL. If none is set, TAP-allowed requests are
-            signed in the enclave.
+            signed in the enclave. Machine inventory and remaining operator steps:{" "}
+            <Link href="/ops" className="text-teal-300 underline-offset-2 hover:underline">
+              Ops
+            </Link>
+            .
           </CardContent>
         </Card>
         <Card>
