@@ -10,7 +10,12 @@ export const LIGHTER_CHAIN_ID = 3586256;
 export const ARBITRUM_CHAIN_ID = 42161;
 export const ARB_USDC = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831";
 export const RELAY_DEPOSITORY = "0x4cd00e387622c35bddb9b4c962c136462338bc31";
-export const ARBITRUM_RPC = "https://arb1.arbitrum.io/rpc";
+export const ARBITRUM_RPC = "https://arbitrum-one-rpc.publicnode.com";
+export const ARBITRUM_RPCS = [
+  "https://arbitrum-one-rpc.publicnode.com",
+  "https://arbitrum.llamarpc.com",
+  "https://arb1.arbitrum.io/rpc",
+];
 
 export function usdcToMicro(amount: string | number): string {
   const n = Number(amount);
@@ -23,22 +28,31 @@ export async function arbUsdcAllowance(owner: string, spender: string): Promise<
   const ownerPad = owner.replace(/^0x/i, "").toLowerCase().padStart(64, "0");
   const spenderPad = spender.replace(/^0x/i, "").toLowerCase().padStart(64, "0");
   const data = `0xdd62ed3e${ownerPad}${spenderPad}`;
-  const response = await fetch(ARBITRUM_RPC, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "eth_call",
-      params: [{ to: ARB_USDC, data }, "latest"],
-    }),
-    signal: AbortSignal.timeout(15_000),
-  });
-  const raw = (await response.json()) as { result?: string; error?: { message?: string } };
-  if (!raw.result || raw.result === "0x") {
-    throw new Error(`USDC allowance call failed: ${raw.error?.message ?? JSON.stringify(raw)}`);
+  let lastError: Error | null = null;
+  for (const rpc of ARBITRUM_RPCS) {
+    try {
+      const response = await fetch(rpc, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_call",
+          params: [{ to: ARB_USDC, data }, "latest"],
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const raw = (await response.json()) as { result?: string; error?: { message?: string } };
+      if (!raw.result || raw.result === "0x") {
+        lastError = new Error(`USDC allowance call failed: ${raw.error?.message ?? JSON.stringify(raw)}`);
+        continue;
+      }
+      return BigInt(raw.result);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
   }
-  return BigInt(raw.result);
+  throw lastError ?? new Error("USDC allowance call failed");
 }
 
 export interface RelayQuoteStepItem {
