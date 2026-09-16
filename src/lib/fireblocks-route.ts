@@ -165,8 +165,10 @@ async function submitContractCall(input: {
   const to = input.to.toLowerCase();
   const attempts: Array<{ destType: string; destId?: string; destAddress?: string }> = [];
   if (destAddr === to) {
-    attempts.push({ destType: input.dest.type, destId: input.dest.id });
     attempts.push({ destType: "INTERNAL_WALLET", destId: input.dest.id });
+    if (input.dest.type !== "INTERNAL_WALLET") {
+      attempts.push({ destType: input.dest.type, destId: input.dest.id });
+    }
   }
   attempts.push({ destType: "ONE_TIME_ADDRESS", destAddress: input.to });
   const createErrors: string[] = [];
