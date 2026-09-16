@@ -38,9 +38,11 @@ export {
   assertAutoSigned,
   createFireblocksApprove,
   createFireblocksContractCall,
+  createFireblocksEthMessage,
   createFireblocksTransfer,
   createFireblocksTypedMessage,
   eip712SignatureFromTx,
+  ethPersonalSignatureFromTx,
   waitForFireblocksTx,
   waitForVaultAsset,
 } from "@/lib/fireblocks-tx";

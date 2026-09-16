@@ -123,6 +123,73 @@ export async function createFireblocksContractCall(input: {
   return { transaction: transactions[0] ?? { id: "", status: "UNKNOWN" }, raw: payload };
 }
 
+export function ethPersonalSignatureFromTx(raw: unknown): string {
+  const rec = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const messages = Array.isArray(rec.signedMessages) ? rec.signedMessages : [];
+  const first = (messages[0] && typeof messages[0] === "object" ? messages[0] : {}) as Record<
+    string,
+    unknown
+  >;
+  const sig =
+    first.signature && typeof first.signature === "object"
+      ? (first.signature as Record<string, unknown>)
+      : null;
+  if (!sig || sig.r == null || sig.s == null) {
+    throw new Error("Fireblocks ETH_MESSAGE completed without a signature");
+  }
+  const r = String(sig.r).replace(/^0x/i, "").padStart(64, "0");
+  const s = String(sig.s).replace(/^0x/i, "").padStart(64, "0");
+  let v = Number(sig.v);
+  if (!Number.isFinite(v)) throw new Error("Fireblocks ETH_MESSAGE missing v");
+  if (v === 0 || v === 1) v += 27;
+  const vHex = v.toString(16).padStart(2, "0");
+  return `0x${r}${s}${vHex}`;
+}
+
+export async function createFireblocksEthMessage(input: {
+  vaultId: string;
+  message: string;
+  note?: string;
+  assetId?: string;
+}): Promise<{ transaction: FireblocksTx; raw: unknown }> {
+  const content = Buffer.from(input.message, "utf8").toString("hex");
+  const attempts: Array<{ operation: string; extraParameters: unknown }> = [
+    {
+      operation: "TYPED_MESSAGE",
+      extraParameters: {
+        rawMessageData: { messages: [{ content, type: "ETH_MESSAGE" }] },
+      },
+    },
+    {
+      operation: "RAW",
+      extraParameters: {
+        rawMessageData: { messages: [{ content, type: "ETH_MESSAGE" }] },
+      },
+    },
+  ];
+  let lastError: Error | null = null;
+  for (const attempt of attempts) {
+    try {
+      const payload = await fireblocksPost(
+        "/v1/transactions",
+        {
+          operation: attempt.operation,
+          assetId: input.assetId ?? "ETH",
+          source: { type: "VAULT_ACCOUNT", id: String(input.vaultId) },
+          note: input.note?.trim() || "TAP eth message",
+          extraParameters: attempt.extraParameters,
+        },
+        crypto.randomUUID(),
+      );
+      const transactions = extractTransactions(payload);
+      return { transaction: transactions[0] ?? { id: "", status: "UNKNOWN" }, raw: payload };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  throw lastError ?? new Error("Fireblocks ETH_MESSAGE failed");
+}
+
 export async function createFireblocksTypedMessage(input: {
   vaultId: string;
   typedData: Eip712TypedData;

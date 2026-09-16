@@ -1,5 +1,5 @@
 import {
-  assertHyperliquidDepositDest,
+  HYPERLIQUID_ARB_BRIDGE2,
   HYPERLIQUID_DEPOSIT_MIN_USDC,
   hyperliquidWithdrawToCover,
   parsePositiveUsd,
@@ -11,14 +11,17 @@ import {
   assertAutoSigned,
   createFireblocksApprove,
   createFireblocksContractCall,
+  createFireblocksEthMessage,
   createFireblocksTransfer,
   createFireblocksTypedMessage,
   eip712SignatureFromTx,
+  ethPersonalSignatureFromTx,
   vaultAssetAvailable,
   waitForFireblocksTx,
   waitForVaultAsset,
 } from "@/lib/fireblocks-tx";
 import { hyperliquidWithdrawTypedData, submitHyperliquidWithdraw } from "@/lib/hyperliquid-withdraw";
+import { sendLighterTx, signLighterRelayTransfer } from "@/lib/lighter-l2";
 import {
   arbUsdcAllowance,
   lighterCollateral,
@@ -35,11 +38,13 @@ import {
 export interface RouteStep {
   kind:
     | "typed_message"
+    | "eth_message"
     | "hyperliquid_withdraw"
     | "wait_vault"
     | "approve"
     | "contract_call"
     | "relay_wait"
+    | "lighter_l2"
     | "lighter_credit"
     | "transfer";
   status: string;
@@ -319,46 +324,117 @@ async function depositLighterViaRelay(input: {
   return steps;
 }
 
-/** Lighter L2 → vault. Relay quote is live; sendTx needs a Lighter API key + L1Sig. */
+/** Lighter L2 → vault via Relay, then the caller TRANSFERs vault USDC to HL Bridge2. */
 async function withdrawLighterToVault(input: {
   rail: DeskRail;
   dest: AllowlistedDest;
   toKind: string;
   amount: string;
   note?: string;
-}): Promise<RouteStep[]> {
+}): Promise<{ steps: RouteStep[]; hop2Amount: string }> {
   const accountIndex = input.rail.lighterAccountIndex;
   if (!accountIndex) throw new Error(`Rail ${input.rail.id} missing lighterAccountIndex`);
+  if (!process.env.LIGHTER_API_PRIVATE_KEY?.trim()) {
+    throw new Error("LIGHTER_API_PRIVATE_KEY is not set in host env");
+  }
+  const beforeVault = await vaultAssetAvailable(input.rail.vaultId, input.rail.arbUsdcAssetId);
+  const beforeLighter = await lighterCollateral(accountIndex);
   const quote = await quoteRelayLighterWithdraw({
     accountIndex,
     l1Address: input.rail.l1Address,
     amountUsdc: input.amount,
   });
+  const requestId = quote.requestId;
+  if (!requestId) throw new Error("Relay withdraw quote missing requestId");
   const action = relayLighterTransferAction(quote);
-  let hop2 =
-    `Fireblocks TRANSFER ${input.amount} USDC_ARB from vault ${input.rail.vaultId} to ${input.dest.name} ` +
-    `(${input.dest.address ?? input.dest.id}).`;
-  if (input.toKind === "hyperliquid") {
-    try {
-      assertHyperliquidDepositDest(input.dest);
-      if (Number(input.amount) < HYPERLIQUID_DEPOSIT_MIN_USDC) {
-        hop2 =
-          `Vault → Hyperliquid TRANSFER to Bridge2 after L2 credit. HL min deposit is ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC; ` +
-          `${input.amount} is too small even if hop 1 lands (Relay also takes ~1 USDC L2 gas).`;
-      } else {
-        hop2 = `Fireblocks TRANSFER native USDC_ARB to Bridge2 (credits vault L1 ${input.rail.l1Address}). Min ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC.`;
-      }
-    } catch (error) {
-      hop2 = error instanceof Error ? error.message : String(error);
-    }
+  const quotedOut = quote.details?.currencyOut?.amountFormatted ?? "";
+  const hop2Amount = quotedOut || String(Math.max(0, Number(input.amount) - 1));
+  if (input.toKind === "hyperliquid" && Number(hop2Amount) + 1e-9 < HYPERLIQUID_DEPOSIT_MIN_USDC) {
+    throw new Error(
+      `Hop 2 needs ≥ ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC on Hyperliquid Bridge2. Relay quoted out ${hop2Amount} from ${input.amount} (L2 gas ${action.usdcFee}). Try a larger amount.`,
+    );
   }
-  throw new Error(
-    `Lighter → vault → ${input.toKind} is two hops (same shape as HL → vault → Lighter). ` +
-      `Hop 1/2 Lighter → vault: L2 transfer Relay request ${quote.requestId} toAccountIndex=${action.toAccountIndex} ` +
-      `amount=${action.amount} usdcFee=${action.usdcFee} memo=${action.memo}. ` +
-      `Needs a Lighter API key (index ≥ 4) to sendTx; Fireblocks then RAW-signs EIP-191 L1Sig. Co-Signer cannot sign Lighter L2. ` +
-      `Hop 2/2 vault → ${input.toKind}: ${hop2}`,
-  );
+  const signed = await signLighterRelayTransfer({
+    to_account_index: action.toAccountIndex,
+    asset_id: action.assetIndex,
+    route_from: action.fromRouteType,
+    route_to: action.toRouteType,
+    amount: action.amount,
+    fee: action.usdcFee,
+    memo: action.memo,
+  });
+  const created = await createFireblocksEthMessage({
+    vaultId: input.rail.vaultId,
+    message: signed.message_to_sign,
+    note: input.note ?? `Lighter L1Sig for Relay withdraw ${input.amount} USDC`,
+  });
+  const waited = await waitForFireblocksTx(created.transaction.id, { timeoutMs: 180_000 });
+  assertAutoSigned(waited.transaction);
+  const l1Sig = ethPersonalSignatureFromTx(waited.raw);
+  const sent = await sendLighterTx({
+    tx_type: signed.tx_type,
+    tx_info: signed.tx_info,
+    l1_sig: l1Sig,
+  });
+  const steps: RouteStep[] = [
+    {
+      kind: "eth_message",
+      status: waited.transaction.status,
+      txId: waited.transaction.id,
+      signedBy: waited.transaction.signedBy,
+    },
+    {
+      kind: "lighter_l2",
+      status: "ok",
+      detail: { requestId, toAccountIndex: action.toAccountIndex, amount: action.amount, sent },
+    },
+  ];
+  const relay = await waitRelayIntent(requestId);
+  if (relay.status !== "success") {
+    throw new Error(`Relay withdraw ${requestId} ended ${relay.status}`);
+  }
+  steps.push({ kind: "relay_wait", status: relay.status, detail: { requestId } });
+  const needVault = beforeVault + Number(hop2Amount) * 0.9;
+  const held = await waitForVaultAsset(input.rail.vaultId, input.rail.arbUsdcAssetId, needVault, {
+    timeoutMs: 8 * 60_000,
+  });
+  const afterLighter = await lighterCollateral(accountIndex);
+  steps.push({
+    kind: "wait_vault",
+    status: "ok",
+    detail: { available: held, beforeVault, hop2Amount, lighterBefore: beforeLighter, lighterAfter: afterLighter },
+  });
+  return { steps, hop2Amount };
+}
+
+async function transferToHyperliquidBridge(input: {
+  rail: DeskRail;
+  amount: string;
+  note?: string;
+}): Promise<RouteStep> {
+  if (Number(input.amount) + 1e-9 < HYPERLIQUID_DEPOSIT_MIN_USDC) {
+    throw new Error(
+      `Hyperliquid Bridge2 min deposit is ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC; refusing ${input.amount}`,
+    );
+  }
+  const created = await createFireblocksTransfer({
+    assetId: input.rail.arbUsdcAssetId,
+    amount: input.amount,
+    sourceVaultId: input.rail.vaultId,
+    destType: "ONE_TIME_ADDRESS",
+    destAddress: HYPERLIQUID_ARB_BRIDGE2,
+    note: input.note ?? `Vault ${input.rail.vaultId} → Hyperliquid Bridge2 ${input.amount} USDC`,
+  });
+  const waited = await waitForFireblocksTx(created.transaction.id, { timeoutMs: 180_000 });
+  assertAutoSigned(waited.transaction);
+  return {
+    kind: "transfer",
+    status: waited.transaction.status,
+    txId: waited.transaction.id,
+    txHash: waited.transaction.txHash,
+    signedBy: waited.transaction.signedBy,
+    detail: { to: HYPERLIQUID_ARB_BRIDGE2 },
+  };
 }
 
 /**
@@ -374,15 +450,24 @@ export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFund
   const steps: RouteStep[] = [];
 
   if (fromKind === "lighter") {
-    steps.push(
-      ...(await withdrawLighterToVault({
-        rail,
-        dest,
-        toKind,
-        amount: String(amount),
-        note: input.note,
-      })),
-    );
+    const hop1 = await withdrawLighterToVault({
+      rail,
+      dest,
+      toKind,
+      amount: String(amount),
+      note: input.note,
+    });
+    steps.push(...hop1.steps);
+    if (toKind === "hyperliquid") {
+      steps.push(
+        await transferToHyperliquidBridge({
+          rail,
+          amount: hop1.hop2Amount,
+          note: input.note,
+        }),
+      );
+    }
+    return { ok: true, railId: rail.id, amount: String(amount), steps };
   }
 
   const available = await vaultAssetAvailable(rail.vaultId, rail.arbUsdcAssetId);
@@ -416,7 +501,6 @@ export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFund
       })),
     );
   } else {
-    if (toKind === "hyperliquid") assertHyperliquidDepositDest(dest);
     steps.push(await transferToDest({ rail, dest, amount: String(amount), note: input.note }));
   }
 
