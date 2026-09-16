@@ -185,9 +185,6 @@ export function isExchangeId(value: string): value is ExchangeId {
   return EXCHANGE_CATALOG.some((item) => item.id === value);
 }
 
-/** Albert Lighter account_index resolved from L1 0x952e… via accountsByL1Address. */
-export const LIGHTER_ALBERT_ACCOUNT_INDEX = "732041";
-
 /** Fireblocks vault 3 (Eason Albert) deposit address, used as Hyperliquid + Lighter L1. */
 export const FIREBLOCKS_VAULT_ADDRESS = "0x6759b70EA668e076180c06085d51449FB0d7EE90";
 
@@ -198,38 +195,6 @@ export const READ_ONLY_EXCHANGES: ExchangeId[] = ["hyperliquid", "lighter"];
 
 export function defaultVenueRecords(): VenueRecord[] {
   return [
-    {
-      id: "hyperliquid_albert",
-      exchange: "hyperliquid",
-      displayName: "Albert Hyperliquid",
-      tags: ["ALBERT"],
-      useDemo: false,
-      enabled: true,
-      readOnly: false,
-      thresholds: { marginTriggerPct: 15, maxTransferUsd: 25_000 },
-      credentials: {
-        account_address: "0x952eFBB40F0886BD9474Ff10eE0893fB0C604956",
-        base_url: "https://api.hyperliquid.xyz",
-      },
-    },
-    {
-      id: "lighter_albert",
-      exchange: "lighter",
-      displayName: "Albert Lighter",
-      tags: ["ALBERT"],
-      useDemo: false,
-      enabled: true,
-      readOnly: false,
-      thresholds: { marginTriggerPct: 18, maxTransferUsd: 15_000 },
-      credentials: {
-        base_url: "https://mainnet.zklighter.elliot.ai",
-        l1_address: "0x952eFBB40F0886BD9474Ff10eE0893fB0C604956",
-        account_index: LIGHTER_ALBERT_ACCOUNT_INDEX,
-        api_key_index: "4",
-        api_pub_key:
-          "6fe69e255080e201e6c9142272ecb22a27f1d52b9dc69c5e54ba4c41e845ee9a9794c5326eb54f9d",
-      },
-    },
     {
       id: "hyperliquid_fireblocks",
       exchange: "hyperliquid",

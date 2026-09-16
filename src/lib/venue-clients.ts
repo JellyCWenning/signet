@@ -37,7 +37,7 @@ function hlInfoBody(type: string, user: string) {
 function hlSpotStableUsd(raw: unknown): { total: number; available: number } {
   const balances =
     raw && typeof raw === "object" && Array.isArray((raw as { balances?: unknown }).balances)
-      ? ((raw as { balances: Array<Record<string, unknown>> }).balances)
+      ? (raw as { balances: Array<Record<string, unknown>> }).balances
       : [];
   let total = 0;
   let available = 0;

@@ -22,7 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <p className="text-sm font-medium tracking-tight">TAP Console</p>
-            <p className="text-[11px] text-muted-foreground">Venue TAP · Albert</p>
+            <p className="text-[11px] text-muted-foreground">Venue TAP · Fireblocks</p>
           </div>
         </div>
         <nav className="flex items-center gap-1 text-sm">
