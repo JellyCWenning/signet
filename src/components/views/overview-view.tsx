@@ -25,7 +25,7 @@ export function OverviewView({ initialVenues }: { initialVenues: ConsolePayload 
       <PageHeader
         eyebrow="Albert"
         title="Venue TAP"
-        description="This app only sets when the bot may send a transfer. It does not run a Co-Signer fleet, a second TAP, or a signing queue."
+        description="This desk sets when the bot may send a transfer. Fireblocks TAP (ALLOW / BLOCK / 2-TIER) is edited in the Fireblocks Console, not here. RSA never goes through this HTTP page."
         actions={
           <div className="flex gap-2">
             <Button nativeButton={false} render={<Link href="/console" />}>
@@ -33,9 +33,6 @@ export function OverviewView({ initialVenues }: { initialVenues: ConsolePayload 
             </Button>
             <Button nativeButton={false} variant="outline" render={<Link href="/flow" />}>
               Flow
-            </Button>
-            <Button nativeButton={false} variant="outline" render={<Link href="/ops" />}>
-              Ops
             </Button>
           </div>
         }
@@ -48,26 +45,33 @@ export function OverviewView({ initialVenues }: { initialVenues: ConsolePayload 
             <CardTitle className="text-base">Policy — who may send what</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            {fbStatus?.configured
-              ? `API connected (…${fbStatus.apiKeyLast4}). Load and edit TAP on the Fireblocks TAP page.`
-              : "Paste the API key and RSA PEM on Fireblocks TAP to load live ALLOW / BLOCK / 2-TIER rules."}{" "}
-            <Link href="/policy" className="text-teal-300 underline-offset-2 hover:underline">
-              Open Fireblocks TAP
-            </Link>
+            Edit ALLOW / BLOCK / 2-TIER and designated signer in{" "}
+            <a
+              href="https://console.fireblocks.io"
+              className="text-teal-300 underline-offset-2 hover:underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              console.fireblocks.io
+            </a>{" "}
+            → Settings → Policy Editor, then approve on the mobile app. This HTTP desk cannot load
+            or save Fireblocks TAP.
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>Fireblocks Co-Signer (MPC)</CardDescription>
-            <CardTitle className="text-base">Still required to auto-sign</CardTitle>
+            <CardDescription>Fireblocks API</CardDescription>
+            <CardTitle className="text-base">
+              {fbStatus?.configured
+                ? `Connected (…${fbStatus.apiKeyLast4})`
+                : "JWT not loaded from host env"}
+            </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            TAP does not replace MPC. The Virginia Nitro Co-Signer is paired to the Signer API
-            user; callback is off. This Tokyo desk does not hold shards. Owner must still approve
-            the MPC key-share in the Fireblocks mobile app.{" "}
-            <Link href="/ops" className="text-teal-300 underline-offset-2 hover:underline">
-              Ops split
-            </Link>
+            {fbStatus?.configured
+              ? "RSA lives in /opt/tap-console/.env.local on the Tokyo host. The browser never sees it."
+              : "Set FIREBLOCKS_API_KEY and FIREBLOCKS_SECRET_KEY in /opt/tap-console/.env.local on the host, then restart tap-console. Do not paste a private key into this site."}{" "}
+            Co-Signer is the Virginia Nitro machine, not this page.
           </CardContent>
         </Card>
       </section>

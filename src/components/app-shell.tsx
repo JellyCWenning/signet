@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Gavel,
   GitBranch,
   LayoutDashboard,
   Menu,
-  Server,
   Settings,
   Shield,
   SlidersHorizontal,
@@ -19,9 +17,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/console", label: "Console", icon: SlidersHorizontal },
-  { href: "/policy", label: "Fireblocks TAP", icon: Gavel },
   { href: "/flow", label: "Flow", icon: GitBranch },
-  { href: "/ops", label: "Ops", icon: Server },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

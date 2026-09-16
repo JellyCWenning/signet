@@ -1,10 +1,10 @@
 # Fireblocks Co-Sign — Operator Manual
 
-This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts and talks to the **Fireblocks API** when you paste an API key + RSA PEM.
+This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts and can submit Fireblocks transfers when the **host** has `FIREBLOCKS_API_KEY` + `FIREBLOCKS_SECRET_KEY`. The HTTP UI does not accept RSA PEMs and does not edit Fireblocks TAP.
 
 It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/console`. Flow: `/flow`. Fireblocks TAP (live API): `/policy`. Ops split: `/ops` · [docs/OPS.md](OPS.md).
+Live Console: `/console`. Flow: `/flow`. Fireblocks TAP: [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor. Ops: [OPS.md](OPS.md).
 
 ---
 
@@ -31,7 +31,7 @@ When remaining margin is at or below the trigger, the bot may send a Fireblocks 
 
 ## Fireblocks API (this desk)
 
-Paste credentials on `/policy` or `/settings`, or set env vars. The server signs an RS256 JWT on every call (`X-API-Key` + `Authorization: Bearer`). Secrets stay in process memory.
+JWT comes from host env only. This HTTP site is not a place to paste RSA.
 
 | Env | Purpose |
 | --- | --- |
@@ -42,12 +42,8 @@ Paste credentials on `/policy` or `/settings`, or set env vars. The server signs
 | Method | Path | Fireblocks call |
 | --- | --- | --- |
 | `GET` | `/api/fireblocks/credentials` | Status only (last 4 of key). No secrets. |
-| `PUT` | `/api/fireblocks/credentials` | Store `{ apiKey, privateKey, baseUrl }` or `{ clear: true }` |
+| `PUT` | `/api/fireblocks/credentials` | **405** — RSA is not accepted over HTTP |
 | `POST` | `/api/fireblocks/credentials` | `{ action: "ping" }` → vault list |
-| `GET` | `/api/fireblocks/policy` | `GET /v1/policy/active_policy?policyType=TRANSFER` |
-| `GET` | `/api/fireblocks/policy/draft` | `GET /v1/policy/draft?policyType=TRANSFER` |
-| `PUT` | `/api/fireblocks/policy/draft` | `PUT /v1/policy/draft` `{ policyTypes, rules }` |
-| `POST` | `/api/fireblocks/policy/draft` | `POST /v1/policy/draft` `{ draftId }` publish |
 | `GET` | `/api/fireblocks/vaults` | `GET /v1/vault/accounts_paged` |
 | `GET` | `/api/fireblocks/vaults/:id` | `GET /v1/vault/accounts/:id` |
 | `GET` | `/api/fireblocks/wallets` | External + internal wallets |
@@ -56,7 +52,7 @@ Paste credentials on `/policy` or `/settings`, or set env vars. The server signs
 | `POST` | `/api/fireblocks/transactions` | `POST /v1/transactions` TRANSFER |
 | `POST` | `/api/fireblocks/send` | Venue TAP gate, then create transfer |
 
-A Signer bot can create transfers. Reading / editing TAP needs Owner / Admin / Non-Signing Admin. Publish still needs mobile approval.
+A Signer bot can create transfers. Reading / editing Fireblocks TAP needs Owner / Admin / Non-Signing Admin in the **Fireblocks Console**. Publish still needs mobile approval.
 
 Do not put `fireblocks_secret.key` or production API keys in this repository.
 
@@ -73,7 +69,7 @@ Do not put `fireblocks_secret.key` or production API keys in this repository.
 | TAP ALLOW | Source, destination, asset, amount; **designated signer** = this API user |
 | No callback URL | If none is set, TAP-allowed requests are signed automatically |
 
-This desk can submit `POST /v1/transactions` from `/policy` or Console **Send via Fireblocks**. A production bot can still call Fireblocks directly with the same JWT.
+This desk can submit `POST /v1/transactions` from Console **Send via Fireblocks**. A production bot can still call Fireblocks directly with the same JWT.
 
 ---
 
@@ -186,9 +182,9 @@ This desk’s **Bots** page is a local pairing model only. Production pairing is
 
 ## 4. Change TAP (recommended: Console)
 
-Do this in the Console. You do not need to give anyone an API key.
+Do this in the Fireblocks Console. The Tokyo HTTP desk cannot load or save TAP.
 
-1. Console → **Settings → Policy Editor**.
+1. [console.fireblocks.io](https://console.fireblocks.io) → **Settings → Policy Editor**.
 2. Match rules top to bottom. Strict rules first.
 3. For this bot: **ALLOW**, with this API user as **designated signer**, limited to the vaults, destinations, and amounts it may move.
 4. Save. Owner / Admin review **Review Policy changes**, then approve on the **Fireblocks mobile app**.
@@ -199,12 +195,7 @@ Do this in the Console. You do not need to give anyone an API key.
 | BLOCK | Transfer fails; never reaches Co-Signer |
 | 2-TIER | Human in Console / mobile — not this desk |
 
-Optional API from this desk (Owner / Admin / Non-Signing Admin; still needs RSA JWT):
-
-- This app: `/policy` → Load active TAP / Save draft / Publish draft
-- Or Console: **Settings → Policy Editor**, then mobile approval
-
-A Signer bot cannot read or edit TAP.
+A Signer bot cannot read or edit TAP. This HTTP site does not expose TAP draft APIs.
 
 ---
 
@@ -224,7 +215,7 @@ Minimum body: `assetId`, `source`, `destination`, `amount`.
 
 Then Fireblocks TAP runs. If ALLOW, the paired Co-Signer signs in the enclave.
 
-This desk can also submit that same `POST /v1/transactions` from **Fireblocks TAP → Transfer** or Console **Send via Fireblocks** (venue TAP is checked first).
+This desk can also submit that same `POST /v1/transactions` from Console **Send via Fireblocks** (venue TAP is checked first).
 
 ---
 
@@ -241,12 +232,10 @@ Open [http://localhost:43147](http://localhost:43147).
 | --- | --- |
 | `/` | Live Albert balances, Fireblocks connection status |
 | `/console` | Venue TAP + Send via Fireblocks |
-| `/policy` | Fireblocks credentials, TAP, vaults, transfers, txs |
 | `/flow` | Signing path through Fireblocks TAP and Co-Signer |
-| `/ops` | Tokyo vs Virginia split, remaining operator steps, what not to mix |
-| `/settings` | Same Fireblocks credentials form, reset Albert TAP |
+| `/settings` | JWT status from host env, reset Albert TAP |
 
-Venue and Fireblocks credentials are in-memory. A process restart drops pasted keys (env vars still load).
+Venue TAP is in-memory. Fireblocks JWT is host env (`.env.local`). A process restart does not drop host env. `/ops` and `/policy` redirect to `/`.
 
 ---
 

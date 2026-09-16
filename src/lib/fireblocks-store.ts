@@ -44,32 +44,10 @@ export function fireblocksConfigured(): boolean {
   return Boolean(fbState().credentials);
 }
 
-export function setFireblocksCredentials(input: {
-  apiKey: string;
-  privateKey: string;
-  baseUrl?: string;
-}): { configured: true; apiKeyLast4: string; baseUrl: string } {
-  const apiKey = input.apiKey.trim();
-  const privateKey = normalizePem(input.privateKey);
-  if (!apiKey) throw new Error("API key is required");
-  if (!privateKey.includes("PRIVATE KEY")) {
-    throw new Error("RSA private key PEM is required (BEGIN PRIVATE KEY / BEGIN RSA PRIVATE KEY)");
-  }
-  const baseUrl = (input.baseUrl?.trim() || "https://api.fireblocks.io")
-    .replace(/\/v1\/?$/, "")
-    .replace(/\/$/, "");
-  fbState().credentials = { apiKey, privateKey, baseUrl };
-  return { configured: true, apiKeyLast4: apiKey.slice(-4), baseUrl };
-}
-
-export function clearFireblocksCredentials(): void {
-  fbState().credentials = null;
-}
-
 function creds(): FireblocksCredentials {
   const current = getFireblocksCredentials();
   if (!current) {
-    throw new Error("Paste the Fireblocks API key and RSA private key first");
+    throw new Error("Fireblocks credentials are not set in host env (.env.local)");
   }
   return current;
 }
@@ -96,14 +74,6 @@ export async function fireblocksPost<T>(
   return fireblocksRequest<T>(creds(), { method: "POST", path, body, idempotencyKey });
 }
 
-export async function fireblocksPut<T>(
-  path: string,
-  body: unknown,
-  idempotencyKey?: string,
-): Promise<T> {
-  return fireblocksRequest<T>(creds(), { method: "PUT", path, body, idempotencyKey });
-}
-
 export async function fireblocksGetFirst<T>(paths: string[]): Promise<{ path: string; data: T }> {
   let lastError: Error | null = null;
   for (const path of paths) {
@@ -115,7 +85,7 @@ export async function fireblocksGetFirst<T>(paths: string[]): Promise<{ path: st
       const message = lastError.message.toLowerCase();
       if (
         message.includes("unauthorized") ||
-        message.includes("paste the fireblocks") ||
+        message.includes("credentials are not set") ||
         message.includes("could not sign") ||
         message.includes("invalid jwt")
       ) {
@@ -124,53 +94,6 @@ export async function fireblocksGetFirst<T>(paths: string[]): Promise<{ path: st
     }
   }
   throw lastError ?? new Error("All Fireblocks paths failed");
-}
-
-export function extractPolicyRules(payload: unknown): unknown[] {
-  if (!payload || typeof payload !== "object") return [];
-  const record = payload as Record<string, unknown>;
-  const nested = [
-    record,
-    record.policy,
-    record.draft,
-    record.draftResponse,
-    record.policyAndValidation,
-    typeof record.draftResponse === "object" && record.draftResponse
-      ? (record.draftResponse as Record<string, unknown>).draft
-      : null,
-    typeof record.policy === "object" && record.policy
-      ? (record.policy as Record<string, unknown>).policy
-      : null,
-  ];
-  for (const item of nested) {
-    if (item && typeof item === "object" && Array.isArray((item as { rules?: unknown }).rules)) {
-      return (item as { rules: unknown[] }).rules;
-    }
-  }
-  return [];
-}
-
-export function extractDraftId(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-  const rec = payload as Record<string, unknown>;
-  const candidates = [
-    rec.draftId,
-    rec.id,
-    typeof rec.draft === "object" && rec.draft
-      ? (rec.draft as Record<string, unknown>).draftId
-      : null,
-    typeof rec.draft === "object" && rec.draft ? (rec.draft as Record<string, unknown>).id : null,
-    typeof rec.draftResponse === "object" && rec.draftResponse
-      ? (rec.draftResponse as Record<string, unknown>).draftId
-      : null,
-    typeof rec.policy === "object" && rec.policy
-      ? (rec.policy as Record<string, unknown>).draftId
-      : null,
-  ];
-  for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) return value;
-  }
-  return null;
 }
 
 export function extractVaults(payload: unknown): FireblocksVault[] {
@@ -283,29 +206,5 @@ export function buildTransferBody(input: CreateTransferInput) {
     destination,
     note: input.note?.trim() || "TAP Console",
     externalTxId: input.externalTxId?.trim() || `tap-${crypto.randomUUID()}`,
-  };
-}
-
-export function compactUnknown(value: unknown, limit = 80): string {
-  if (value == null || value === "") return "—";
-  if (typeof value === "string") return value.length > limit ? `${value.slice(0, limit)}…` : value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  try {
-    const json = JSON.stringify(value);
-    return json.length > limit ? `${json.slice(0, limit)}…` : json;
-  } catch {
-    return "—";
-  }
-}
-
-export function summarizeRule(rule: unknown, index: number) {
-  const rec = (rule && typeof rule === "object" ? rule : {}) as Record<string, unknown>;
-  return {
-    index,
-    name: String(rec.name ?? rec.type ?? `Rule ${index + 1}`),
-    action: String(rec.action ?? rec.operatorAction ?? "—"),
-    asset: compactUnknown(rec.asset ?? rec.assetId ?? rec.assetType ?? rec.assetTypes),
-    source: compactUnknown(rec.src ?? rec.source ?? rec.sourceType),
-    dest: compactUnknown(rec.dst ?? rec.destination ?? rec.dstType),
   };
 }

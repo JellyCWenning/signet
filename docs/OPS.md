@@ -9,7 +9,7 @@ TAP UI: http://13.196.167.126/ (Tokyo t3.small `i-029023e02658d5cb2`)
 Co-Signer: us-east-1 `i-0726e50457f1cf8b2` Nitro, paired to API user `c49cc13a-b267-48eb-876c-37e4bc1eb07a`, callback off
 Blocker: workspace Owner must approve the MPC key-share in the Fireblocks mobile app within 120 hours, then confirm Co-signers tab is Online
 
-In-app copy of this split: `/ops`.
+In-app `/ops` and `/policy` were removed. This HTTP desk does not accept RSA and does not edit Fireblocks TAP.
 
 ---
 
@@ -17,7 +17,7 @@ In-app copy of this split: `/ops`.
 
 | Role | Where | Stores | Never stores |
 | --- | --- | --- | --- |
-| TAP Console / bot web | Tokyo t3.small | Web, venue TAP (margin trigger / max transfer), Fireblocks API JWT (API key + RSA, pasted on `/policy` or env) | No MPC shares |
+| TAP Console / bot web | Tokyo t3.small | Web, venue TAP (margin trigger / max transfer). JWT only from host `.env.local` | No MPC shares, no RSA paste UI |
 | API Co-Signer | Virginia c5.xlarge Nitro | Customer MPC share (enclave; ciphertext in S3 + KMS PCR8) | No frontend, no RSA bot key |
 | Fireblocks SaaS | Global | Cloud MPC share + Console TAP (ALLOW / BLOCK / 2-TIER) | — |
 
@@ -45,7 +45,7 @@ Venue TAP (Tokyo web) → bot JWT → Fireblocks TAP
 | Code | `/opt/tap-console` (clone of this repo) |
 | Process | `systemctl status tap-console nginx` |
 
-Fireblocks API key / RSA are **not** in git. Open `/policy`, paste key UUID + PEM, Ping. In-memory credentials die on process restart. Persist on the host only:
+Fireblocks API key / RSA are **not** in git and **not** pasted into the HTTP UI. Persist on the host only:
 
 ```
 /opt/tap-console/.env.local
@@ -53,11 +53,11 @@ FIREBLOCKS_API_KEY=
 FIREBLOCKS_SECRET_KEY=
 ```
 
-Never commit that file.
+Never commit that file. The browser never sees the PEM.
 
 Tokyo TAP is HTTP only. HTTPS later via ACM / ALB or an nginx certificate.
 
-`tap-console.service` loads `/opt/tap-console/.env.local` if that file exists (`EnvironmentFile=-/opt/tap-console/.env.local`). Next.js also reads it from the working directory. The host currently has no Fireblocks JWT until someone pastes on `/policy` or writes `.env.local`.
+`tap-console.service` loads `/opt/tap-console/.env.local` if that file exists (`EnvironmentFile=-/opt/tap-console/.env.local`). Next.js also reads it from the working directory.
 
 ### SSH / deploy
 
@@ -117,8 +117,8 @@ tail -f /var/log/customer_cosigner.log
 1. Owner approves the MPC key-share in the Fireblocks mobile app (120 hours). Without this, auto-sign cannot start.
 2. Console: Developer Center → Co-signers → Online, API user paired.
 3. Fireblocks Console TAP: ALLOW + designated signer (workspace TAP, not Tokyo venue TAP).
-4. Open http://13.196.167.126/policy — paste API key UUID + RSA PEM, Ping.
-5. Small ALLOW transfer from Tokyo desk or bot. Mobile should not be required unless TAP is 2-TIER.
+4. JWT already on Tokyo in `/opt/tap-console/.env.local`. Do not paste RSA into the website.
+5. Small ALLOW transfer from Tokyo `/console` or a bot. Mobile should not be required unless TAP is 2-TIER.
 6. Rotate keys that appeared in chat: delete IAM user `cursor-temp-cosigner` access keys; revoke any GitHub PAT used to push this repo. Do not commit those values.
 7. HTTPS for Tokyo TAP when you are ready (ACM / ALB or nginx cert).
 
@@ -130,3 +130,4 @@ tail -f /var/log/customer_cosigner.log
 - Enable Nitro on the TAP Console host.
 - Add your own IAM Allow on the Co-Signer S3 bucket to “fix” Access Denied.
 - Commit `FIREBLOCKS_API_KEY`, `FIREBLOCKS_SECRET_KEY`, or `fireblocks_secret.key`.
+- Paste RSA or edit Fireblocks TAP through the Tokyo HTTP site.

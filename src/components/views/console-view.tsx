@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { FireblocksTransferForm } from "@/components/fireblocks-transfer-form";
 import { PageHeader } from "@/components/page-header";
@@ -410,11 +409,9 @@ function VenueCard({
             </div>
           ) : (
             <p className="mt-2 text-xs text-muted-foreground">
-              Connect the Fireblocks API key and RSA PEM on{" "}
-              <Link href="/policy" className="text-teal-300 underline-offset-2 hover:underline">
-                Fireblocks TAP
-              </Link>{" "}
-              first. Dry-run only checks venue TAP; this button posts POST /v1/transactions.
+              Fireblocks JWT is not loaded from host env. Set FIREBLOCKS_API_KEY and
+              FIREBLOCKS_SECRET_KEY in /opt/tap-console/.env.local, then restart tap-console. Do not
+              paste an RSA key into this HTTP page. Dry-run only checks venue TAP.
             </p>
           )}
         </div>

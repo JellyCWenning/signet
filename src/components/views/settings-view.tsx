@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { FireblocksCredentialsCard } from "@/components/fireblocks-credentials-card";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +19,7 @@ export function SettingsView({
 }) {
   const router = useRouter();
   const { data, setData } = useJson("/api/workspace", 4000, initial);
-  const { data: fbStatus, setData: setFbStatus } = useJson<FireblocksStatus>(
-    "/api/fireblocks/credentials",
-    8000,
-  );
+  const { data: fbStatus } = useJson<FireblocksStatus>("/api/fireblocks/credentials", 8000);
 
   async function reset() {
     const response = await fetch("/api/workspace", {
@@ -47,38 +42,45 @@ export function SettingsView({
       <PageHeader
         eyebrow="Workspace"
         title="Settings"
-        description="Connect Fireblocks here or on the Fireblocks TAP page. This app does not host a Co-Signer."
+        description="Venue TAP defaults live here. Fireblocks TAP and RSA do not."
       />
-
-      <FireblocksCredentialsCard status={fbStatus} onChange={setFbStatus} />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Fireblocks Co-Signer (MPC)</CardTitle>
+            <CardTitle>Fireblocks TAP</CardTitle>
             <CardDescription>
-              TAP is policy. Auto-sign still needs Fireblocks MPC: a Signer API user paired to an
-              API Co-Signer. This app does not run that machine.
+              ALLOW / BLOCK / 2-TIER and designated signer are workspace policy.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Do not configure a Callback Handler URL. If none is set, TAP-allowed requests are
-            signed in the enclave. Machine inventory and remaining operator steps:{" "}
-            <Link href="/ops" className="text-teal-300 underline-offset-2 hover:underline">
-              Ops
-            </Link>
-            .
+            Edit them in{" "}
+            <a
+              href="https://console.fireblocks.io"
+              className="text-teal-300 underline-offset-2 hover:underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              console.fireblocks.io
+            </a>{" "}
+            → Settings → Policy Editor. This HTTP site does not accept TAP drafts or RSA PEMs.
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Bot API auth</CardTitle>
+            <CardTitle>Bot JWT</CardTitle>
             <CardDescription>
-              POST /v1/transactions needs the API key UUID plus a JWT signed with the RSA private
-              key. Operator: {data?.settings.operatorName}
+              {fbStatus?.configured
+                ? `Host env loaded (…${fbStatus.apiKeyLast4})`
+                : "Host env not loaded"}
+              {data?.settings.operatorName ? ` · operator ${data.settings.operatorName}` : ""}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              RSA is only on the Tokyo host in <span className="font-mono">/opt/tap-console/.env.local</span>.
+              Restart tap-console after changing it.
+            </p>
             <Button type="button" variant="outline" onClick={() => void reset()}>
               Reset Albert TAP defaults
             </Button>
