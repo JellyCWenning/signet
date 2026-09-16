@@ -9,7 +9,7 @@ export function PolicyView() {
       <PageHeader
         eyebrow="Transaction Authorization Policy"
         title="Fireblocks TAP"
-        description="Edit Fireblocks TAP in the Console Policy Editor. Trigger thresholds for Hyperliquid, Lighter, and MEXC live in TAP Console."
+        description="Edit Fireblocks TAP in the Console Policy Editor. Albert Hyperliquid and Lighter triggers live in TAP Console."
       />
 
       <Card>

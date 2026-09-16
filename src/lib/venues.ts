@@ -217,16 +217,6 @@ export function defaultVenueRecords(): VenueRecord[] {
           "6fe69e255080e201e6c9142272ecb22a27f1d52b9dc69c5e54ba4c41e845ee9a9794c5326eb54f9d",
       },
     },
-    {
-      id: "mexc",
-      exchange: "mexc",
-      displayName: "MEXC",
-      tags: [],
-      useDemo: false,
-      enabled: false,
-      thresholds: { marginTriggerPct: 12, maxTransferUsd: 10_000 },
-      credentials: {},
-    },
   ];
 }
 

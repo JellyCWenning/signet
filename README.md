@@ -2,7 +2,7 @@
 
 Operator desk for a Fireblocks Signer bot plus venue trigger TAP.
 
-**Callback is off.** Fireblocks workspace TAP still gates signing. **TAP Console** (`/console`) sets account-margin and max-single-transfer triggers for Hyperliquid, Lighter, and MEXC.
+**TAP Console** (`/console`) currently experiments with Albert Hyperliquid and Albert Lighter (account margin + max single transfer).
 
 **Usage manual:** [docs/MANUAL.md](docs/MANUAL.md)
 

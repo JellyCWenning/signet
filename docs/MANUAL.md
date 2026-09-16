@@ -13,8 +13,7 @@ Edit **account margin** (remaining %) and **max single transfer** at `/console`.
 Seeded accounts:
 
 - `hyperliquid_albert` — Albert Hyperliquid, address `0x952e…4956`
-- `lighter_albert` — Albert Lighter, `account_index` **732041** (resolved from that L1 via `accountsByL1Address`), `api_key_index` 4
-- `mexc` — waiting on keys
+- `lighter_albert` — Albert Lighter, `account_index` **732041**, `api_key_index` 4
 
 When remaining margin is at or below the trigger, the bot may send a Fireblocks transfer up to that account’s max. Fireblocks TAP still has to ALLOW the transfer.
 

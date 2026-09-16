@@ -22,7 +22,8 @@ const globalForVenues = globalThis as typeof globalThis & {
 
 function venueState(): VenueState {
   const current = globalForVenues.__venueTap;
-  if (!current || !current.records.some((item) => item.id === "hyperliquid_albert")) {
+  const ids = current?.records.map((item) => item.id).sort().join(",") ?? "";
+  if (ids !== "hyperliquid_albert,lighter_albert") {
     globalForVenues.__venueTap = { records: defaultVenueRecords() };
   }
   return globalForVenues.__venueTap!;

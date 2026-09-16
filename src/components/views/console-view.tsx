@@ -30,7 +30,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
       <PageHeader
         eyebrow="TAP Console"
         title="Trigger thresholds"
-        description="Albert Hyperliquid and Lighter are live. Adjust account margin and max single transfer. MEXC is waiting on API keys."
+        description="Experiment with Albert Hyperliquid and Albert Lighter only. Set margin trigger and max single transfer against live balances."
         actions={
           <Button type="button" variant="outline" onClick={() => void reload()}>
             Refresh balances
@@ -40,9 +40,9 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
 
       <section className="grid gap-3 sm:grid-cols-3">
         <SummaryCard
-          label="Venues"
+          label="Accounts"
           value={venues.length}
-          hint="Albert Hyperliquid · Albert Lighter · MEXC"
+          hint="Albert Hyperliquid · Albert Lighter"
         />
         <SummaryCard
           label="Armed now"
@@ -62,7 +62,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
       ) : venues.length === 0 ? (
         <p className="text-sm text-muted-foreground">No venues configured.</p>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-2">
           {venues.map((venue) => (
             <VenueCard
               key={venue.id}
@@ -143,6 +143,33 @@ function VenueCard({
       toast.success(`${venue.name} credentials stored in memory only`);
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Unable to store credentials");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function evaluate() {
+    setBusy(true);
+    try {
+      const amountUsd = Number(maxTransfer);
+      const response = await fetch("/api/venues/evaluate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ venueId: venue.id, amountUsd }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Evaluate failed");
+      if (body.allowed) {
+        toast.success(`${venue.name} would send ${formatUsd(body.cappedAmountUsd, true)}`, {
+          description: body.reasons?.length ? body.reasons.join(" · ") : "Within TAP",
+        });
+      } else {
+        toast.error(`${venue.name} would not send`, {
+          description: (body.reasons as string[] | undefined)?.join(" · ") ?? "Blocked",
+        });
+      }
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Evaluate failed");
     } finally {
       setBusy(false);
     }
@@ -232,9 +259,14 @@ function VenueCard({
           {venue.live.error ? ` · ${venue.live.error}` : ""}
         </div>
 
-        <Button type="button" disabled={busy || !dirty} onClick={() => void saveThresholds()}>
-          {busy ? "Saving…" : "Save TAP"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" disabled={busy || !dirty} onClick={() => void saveThresholds()}>
+            {busy ? "Saving…" : "Save TAP"}
+          </Button>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => void evaluate()}>
+            Dry-run transfer
+          </Button>
+        </div>
 
         <div className="border-t border-border/80 pt-3">
           <button
