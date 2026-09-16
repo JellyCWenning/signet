@@ -1,6 +1,6 @@
 /**
  * Relay quote + status for Lighter (chain 3586256).
- * Deposits are Fireblocks APPROVE + CONTRACT_CALL depositErc20, not ERC20 TRANSFER.
+ * Deposits are Fireblocks CONTRACT_CALL USDC.approve + depositErc20, not ERC20 TRANSFER.
  */
 
 export const RELAY_QUOTE_URL = "https://api.relay.link/quote/v2";
@@ -10,11 +10,49 @@ export const LIGHTER_CHAIN_ID = 3586256;
 export const ARBITRUM_CHAIN_ID = 42161;
 export const ARB_USDC = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831";
 export const RELAY_DEPOSITORY = "0x4cd00e387622c35bddb9b4c962c136462338bc31";
+export const ARBITRUM_RPC = "https://arbitrum-one-rpc.publicnode.com";
+export const ARBITRUM_RPCS = [
+  "https://arbitrum-one-rpc.publicnode.com",
+  "https://arbitrum.llamarpc.com",
+  "https://arb1.arbitrum.io/rpc",
+];
 
 export function usdcToMicro(amount: string | number): string {
   const n = Number(amount);
   if (!Number.isFinite(n) || n <= 0) throw new Error("amount must be greater than 0");
   return String(Math.round(n * 1_000_000));
+}
+
+/** On-chain USDC.allowance(owner, spender) on Arbitrum. */
+export async function arbUsdcAllowance(owner: string, spender: string): Promise<bigint> {
+  const ownerPad = owner.replace(/^0x/i, "").toLowerCase().padStart(64, "0");
+  const spenderPad = spender.replace(/^0x/i, "").toLowerCase().padStart(64, "0");
+  const data = `0xdd62ed3e${ownerPad}${spenderPad}`;
+  let lastError: Error | null = null;
+  for (const rpc of ARBITRUM_RPCS) {
+    try {
+      const response = await fetch(rpc, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_call",
+          params: [{ to: ARB_USDC, data }, "latest"],
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const raw = (await response.json()) as { result?: string; error?: { message?: string } };
+      if (!raw.result || raw.result === "0x") {
+        lastError = new Error(`USDC allowance call failed: ${raw.error?.message ?? JSON.stringify(raw)}`);
+        continue;
+      }
+      return BigInt(raw.result);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  throw lastError ?? new Error("USDC allowance call failed");
 }
 
 export interface RelayQuoteStepItem {
@@ -27,7 +65,7 @@ export interface RelayQuoteStepItem {
 export interface RelayQuote {
   requestId?: string;
   steps: Array<{ id?: string; items?: Array<{ data?: RelayQuoteStepItem; check?: { endpoint?: string } }> }>;
-  details?: { currencyOut?: { amountFormatted?: string; amount?: string } };
+  details?: { currencyOut?: { amountFormatted?: string; amount?: string }; recipient?: string };
   fees?: { relayer?: { amountUsd?: string } };
   raw: unknown;
 }
@@ -58,6 +96,19 @@ export async function quoteRelayLighterDeposit(input: {
   }
   const rec = raw as RelayQuote;
   return { ...rec, raw };
+}
+
+export function relayQuoteRecipient(quote: RelayQuote): string | undefined {
+  const blobs: unknown[] = [quote, quote.details, quote.raw];
+  if (quote.raw && typeof quote.raw === "object") {
+    blobs.push((quote.raw as { details?: unknown }).details);
+  }
+  for (const blob of blobs) {
+    if (!blob || typeof blob !== "object") continue;
+    const rec = (blob as { recipient?: unknown }).recipient;
+    if (typeof rec === "string" && rec.trim()) return rec;
+  }
+  return undefined;
 }
 
 export function relayStepCalldata(

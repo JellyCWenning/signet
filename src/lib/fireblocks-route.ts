@@ -1,28 +1,40 @@
 import {
+  HYPERLIQUID_ARB_BRIDGE2,
+  HYPERLIQUID_DEPOSIT_MIN_USDC,
+  assertVaultOnlyDest,
   hyperliquidWithdrawToCover,
   parsePositiveUsd,
   resolveVenueRoute,
+  VENUE_ROUTES,
   type AllowlistedDest,
   type DeskRail,
+  type VenueRouteName,
 } from "@/lib/fireblocks-desk";
 import {
   assertAutoSigned,
   createFireblocksApprove,
   createFireblocksContractCall,
+  createFireblocksEthMessage,
   createFireblocksTransfer,
   createFireblocksTypedMessage,
   eip712SignatureFromTx,
+  ethPersonalSignatureFromTx,
   vaultAssetAvailable,
   waitForFireblocksTx,
   waitForVaultAsset,
 } from "@/lib/fireblocks-tx";
 import { hyperliquidWithdrawTypedData, submitHyperliquidWithdraw } from "@/lib/hyperliquid-withdraw";
+import { sendLighterTx, signLighterRelayTransfer } from "@/lib/lighter-l2";
 import {
+  arbUsdcAllowance,
   lighterCollateral,
   quoteRelayLighterDeposit,
   quoteRelayLighterWithdraw,
+  RELAY_DEPOSITORY,
   relayLighterTransferAction,
+  relayQuoteRecipient,
   relayStepCalldata,
+  usdcToMicro,
   waitLighterCollateral,
   waitRelayIntent,
 } from "@/lib/relay-lighter";
@@ -30,11 +42,13 @@ import {
 export interface RouteStep {
   kind:
     | "typed_message"
+    | "eth_message"
     | "hyperliquid_withdraw"
     | "wait_vault"
     | "approve"
     | "contract_call"
     | "relay_wait"
+    | "lighter_l2"
     | "lighter_credit"
     | "transfer";
   status: string;
@@ -70,6 +84,11 @@ export async function signAndSubmitHyperliquidWithdraw(input: {
     amount: input.amount,
     timeMs,
   });
+  assertVaultOnlyDest(
+    input.rail,
+    String(typedData.message.destination),
+    "Hyperliquid withdraw3 destination",
+  );
   const created = await createFireblocksTypedMessage({
     vaultId: input.rail.vaultId,
     typedData,
@@ -151,6 +170,49 @@ async function transferToDest(input: {
   };
 }
 
+async function submitContractCall(input: {
+  rail: DeskRail;
+  dest: AllowlistedDest;
+  to: string;
+  data: string;
+  note: string;
+}) {
+  const destAddr = input.dest.address?.toLowerCase();
+  const to = input.to.toLowerCase();
+  const attempts: Array<{ destType: string; destId?: string; destAddress?: string }> = [];
+  if (destAddr === to) {
+    attempts.push({ destType: "INTERNAL_WALLET", destId: input.dest.id });
+    if (input.dest.type !== "INTERNAL_WALLET") {
+      attempts.push({ destType: input.dest.type, destId: input.dest.id });
+    }
+  }
+  attempts.push({ destType: "ONE_TIME_ADDRESS", destAddress: input.to });
+  const createErrors: string[] = [];
+  for (const attempt of attempts) {
+    let created;
+    try {
+      created = await createFireblocksContractCall({
+        vaultId: input.rail.vaultId,
+        assetId: input.rail.gasAssetId ?? "ETH-AETH",
+        destType: attempt.destType,
+        destId: attempt.destId,
+        destAddress: attempt.destAddress ?? input.to,
+        contractCallData: input.data,
+        amount: "0",
+        note: input.note,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      createErrors.push(`${attempt.destType}: ${message}`);
+      continue;
+    }
+    const waited = await waitForFireblocksTx(created.transaction.id, { timeoutMs: 180_000 });
+    assertAutoSigned(waited.transaction);
+    return waited;
+  }
+  throw new Error(createErrors.join(" | ") || "CONTRACT_CALL failed");
+}
+
 async function depositLighterViaRelay(input: {
   rail: DeskRail;
   dest: AllowlistedDest;
@@ -174,57 +236,84 @@ async function depositLighterViaRelay(input: {
   const approve = quote.steps.find((s) => s.id === "approve");
   if (approve) {
     const call = relayStepCalldata(quote, "approve");
-    const created = await createFireblocksApprove({
-      vaultId: input.rail.vaultId,
-      assetId: input.rail.arbUsdcAssetId,
-      destType: input.dest.type,
-      destId: input.dest.id,
-      amount: input.amount,
-      contractCallData: call.data,
-      note: input.note ?? `Approve ${input.amount} USDC for Relay Depository`,
-    });
-    const waited = await waitForFireblocksTx(created.transaction.id, { timeoutMs: 180_000 });
-    assertAutoSigned(waited.transaction);
-    steps.push({
-      kind: "approve",
-      status: waited.transaction.status,
-      txId: waited.transaction.id,
-      txHash: waited.transaction.txHash,
-      signedBy: waited.transaction.signedBy,
-    });
+    const need = BigInt(usdcToMicro(input.amount));
+    const spender = input.dest.address ?? RELAY_DEPOSITORY;
+    let allowance = BigInt(0);
+    try {
+      allowance = await arbUsdcAllowance(input.rail.l1Address, spender);
+    } catch {
+      allowance = BigInt(0);
+    }
+    if (allowance >= need) {
+      steps.push({
+        kind: "approve",
+        status: "skipped_existing_allowance",
+        detail: { allowance: allowance.toString(), need: need.toString(), spender },
+      });
+    } else {
+      let waited;
+      try {
+        waited = await submitContractCall({
+          rail: input.rail,
+          dest: input.dest,
+          to: call.to,
+          data: call.data,
+          note: input.note ?? `Approve ${input.amount} USDC for Relay Depository`,
+        });
+      } catch (error) {
+        try {
+          const created = await createFireblocksApprove({
+            vaultId: input.rail.vaultId,
+            assetId: input.rail.arbUsdcAssetId,
+            destType: input.dest.type,
+            destId: input.dest.id,
+            amount: input.amount,
+            contractCallData: call.data,
+            note: input.note ?? `Approve ${input.amount} USDC for Relay Depository`,
+          });
+          waited = await waitForFireblocksTx(created.transaction.id, { timeoutMs: 180_000 });
+          assertAutoSigned(waited.transaction);
+        } catch (approveError) {
+          const first = error instanceof Error ? error.message : String(error);
+          const second = approveError instanceof Error ? approveError.message : String(approveError);
+          throw new Error(
+            `USDC approve blocked (need ${need}, allowance ${allowance}). CONTRACT_CALL: ${first}. APPROVE: ${second}. ` +
+              `TAP must ALLOW CONTRACT_CALL to USDC ${call.to} and/or APPROVE to Relay Depository ${input.dest.id} from vault ${input.rail.vaultId}, designated signer = this API user.`,
+          );
+        }
+      }
+      steps.push({
+        kind: "approve",
+        status: waited.transaction.status,
+        txId: waited.transaction.id,
+        txHash: waited.transaction.txHash,
+        signedBy: waited.transaction.signedBy,
+      });
+    }
   }
 
   const deposit = relayStepCalldata(quote, "deposit");
-  let created;
+  let createdWaited;
   try {
-    created = await createFireblocksContractCall({
-      vaultId: input.rail.vaultId,
-      assetId: input.rail.gasAssetId ?? "ETH-AETH",
-      destType: input.dest.type,
-      destId: input.dest.id,
-      contractCallData: deposit.data,
-      amount: "0",
+    createdWaited = await submitContractCall({
+      rail: input.rail,
+      dest: input.dest,
+      to: deposit.to,
+      data: deposit.data,
       note: input.note ?? `Relay depositErc20 ${input.amount} USDC → Lighter ${accountIndex}`,
     });
-  } catch {
-    created = await createFireblocksContractCall({
-      vaultId: input.rail.vaultId,
-      assetId: input.rail.gasAssetId ?? "ETH-AETH",
-      destType: "INTERNAL_WALLET",
-      destId: input.dest.id,
-      contractCallData: deposit.data,
-      amount: "0",
-      note: input.note ?? `Relay depositErc20 ${input.amount} USDC → Lighter ${accountIndex}`,
-    });
+  } catch (error) {
+    throw new Error(
+      `depositErc20 CONTRACT_CALL blocked: ${error instanceof Error ? error.message : error}. ` +
+        `TAP must ALLOW CONTRACT_CALL (ETH-AETH) from vault ${input.rail.vaultId} to ${input.dest.id}.`,
+    );
   }
-  const waited = await waitForFireblocksTx(created.transaction.id, { timeoutMs: 180_000 });
-  assertAutoSigned(waited.transaction);
   steps.push({
     kind: "contract_call",
-    status: waited.transaction.status,
-    txId: waited.transaction.id,
-    txHash: waited.transaction.txHash,
-    signedBy: waited.transaction.signedBy,
+    status: createdWaited.transaction.status,
+    txId: createdWaited.transaction.id,
+    txHash: createdWaited.transaction.txHash,
+    signedBy: createdWaited.transaction.signedBy,
     detail: { requestId, to: deposit.to },
   });
 
@@ -244,12 +333,130 @@ async function depositLighterViaRelay(input: {
   return steps;
 }
 
+/** Lighter L2 → vault via Relay, then the caller TRANSFERs vault USDC to HL Bridge2. */
+async function withdrawLighterToVault(input: {
+  rail: DeskRail;
+  dest: AllowlistedDest;
+  toKind: string;
+  amount: string;
+  note?: string;
+}): Promise<{ steps: RouteStep[]; hop2Amount: string }> {
+  const accountIndex = input.rail.lighterAccountIndex;
+  if (!accountIndex) throw new Error(`Rail ${input.rail.id} missing lighterAccountIndex`);
+  if (!process.env.LIGHTER_API_PRIVATE_KEY?.trim()) {
+    throw new Error("LIGHTER_API_PRIVATE_KEY is not set in host env");
+  }
+  const beforeVault = await vaultAssetAvailable(input.rail.vaultId, input.rail.arbUsdcAssetId);
+  const beforeLighter = await lighterCollateral(accountIndex);
+  const quote = await quoteRelayLighterWithdraw({
+    accountIndex,
+    l1Address: input.rail.l1Address,
+    amountUsdc: input.amount,
+  });
+  assertVaultOnlyDest(
+    input.rail,
+    relayQuoteRecipient(quote) ?? input.rail.l1Address,
+    "Lighter Relay withdraw recipient",
+  );
+  const requestId = quote.requestId;
+  if (!requestId) throw new Error("Relay withdraw quote missing requestId");
+  const action = relayLighterTransferAction(quote);
+  const quotedOut = quote.details?.currencyOut?.amountFormatted ?? "";
+  const hop2Amount = quotedOut || String(Math.max(0, Number(input.amount) - 1));
+  if (input.toKind === "hyperliquid" && Number(hop2Amount) + 1e-9 < HYPERLIQUID_DEPOSIT_MIN_USDC) {
+    throw new Error(
+      `Hop 2 needs ≥ ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC on Hyperliquid Bridge2. Relay quoted out ${hop2Amount} from ${input.amount} (L2 gas ${action.usdcFee}). Try a larger amount.`,
+    );
+  }
+  const signed = await signLighterRelayTransfer({
+    to_account_index: action.toAccountIndex,
+    asset_id: action.assetIndex,
+    route_from: action.fromRouteType,
+    route_to: action.toRouteType,
+    amount: action.amount,
+    fee: action.usdcFee,
+    memo: action.memo,
+  });
+  const created = await createFireblocksEthMessage({
+    vaultId: input.rail.vaultId,
+    message: signed.message_to_sign,
+    note: input.note ?? `Lighter L1Sig for Relay withdraw ${input.amount} USDC`,
+  });
+  const waited = await waitForFireblocksTx(created.transaction.id, { timeoutMs: 180_000 });
+  assertAutoSigned(waited.transaction);
+  const l1Sig = ethPersonalSignatureFromTx(waited.raw);
+  const sent = await sendLighterTx({
+    tx_type: signed.tx_type,
+    tx_info: signed.tx_info,
+    l1_sig: l1Sig,
+  });
+  const steps: RouteStep[] = [
+    {
+      kind: "eth_message",
+      status: waited.transaction.status,
+      txId: waited.transaction.id,
+      signedBy: waited.transaction.signedBy,
+    },
+    {
+      kind: "lighter_l2",
+      status: "ok",
+      detail: { requestId, toAccountIndex: action.toAccountIndex, amount: action.amount, sent },
+    },
+  ];
+  const relay = await waitRelayIntent(requestId);
+  if (relay.status !== "success") {
+    throw new Error(`Relay withdraw ${requestId} ended ${relay.status}`);
+  }
+  steps.push({ kind: "relay_wait", status: relay.status, detail: { requestId } });
+  const needVault = beforeVault + Number(hop2Amount) * 0.9;
+  const held = await waitForVaultAsset(input.rail.vaultId, input.rail.arbUsdcAssetId, needVault, {
+    timeoutMs: 8 * 60_000,
+  });
+  const afterLighter = await lighterCollateral(accountIndex);
+  steps.push({
+    kind: "wait_vault",
+    status: "ok",
+    detail: { available: held, beforeVault, hop2Amount, lighterBefore: beforeLighter, lighterAfter: afterLighter },
+  });
+  return { steps, hop2Amount };
+}
+
+async function transferToHyperliquidBridge(input: {
+  rail: DeskRail;
+  amount: string;
+  note?: string;
+}): Promise<RouteStep> {
+  if (Number(input.amount) + 1e-9 < HYPERLIQUID_DEPOSIT_MIN_USDC) {
+    throw new Error(
+      `Hyperliquid Bridge2 min deposit is ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC; refusing ${input.amount}`,
+    );
+  }
+  const created = await createFireblocksTransfer({
+    assetId: input.rail.arbUsdcAssetId,
+    amount: input.amount,
+    sourceVaultId: input.rail.vaultId,
+    destType: "ONE_TIME_ADDRESS",
+    destAddress: HYPERLIQUID_ARB_BRIDGE2,
+    note: input.note ?? `Vault ${input.rail.vaultId} → Hyperliquid Bridge2 ${input.amount} USDC`,
+  });
+  const waited = await waitForFireblocksTx(created.transaction.id, { timeoutMs: 180_000 });
+  assertAutoSigned(waited.transaction);
+  return {
+    kind: "transfer",
+    status: waited.transaction.status,
+    txId: waited.transaction.id,
+    txHash: waited.transaction.txHash,
+    signedBy: waited.transaction.signedBy,
+    detail: { to: HYPERLIQUID_ARB_BRIDGE2 },
+  };
+}
+
 /**
  * Move USDC between TAP venues that share a Fireblocks vault (same L1).
  *
  * Hyperliquid → Lighter: TYPED_MESSAGE withdraw3 if vault is short, then Relay
- * quote + APPROVE + CONTRACT_CALL depositErc20.
- * Lighter → vault/HL: Relay L2 transfer (needs Lighter API signer) — quoted here.
+ * quote + CONTRACT_CALL USDC.approve (or leftover allowance) + CONTRACT_CALL depositErc20.
+ * Lighter → Hyperliquid: Lighter L2 → vault (Relay), then vault USDC TRANSFER to HL Bridge2.
  */
 export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFundsResult> {
   const amount = parsePositiveUsd(input.amount);
@@ -257,19 +464,24 @@ export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFund
   const steps: RouteStep[] = [];
 
   if (fromKind === "lighter") {
-    const accountIndex = rail.lighterAccountIndex;
-    if (!accountIndex) throw new Error(`Rail ${rail.id} missing lighterAccountIndex`);
-    const quote = await quoteRelayLighterWithdraw({
-      accountIndex,
-      l1Address: rail.l1Address,
-      amountUsdc: String(amount),
+    const hop1 = await withdrawLighterToVault({
+      rail,
+      dest,
+      toKind,
+      amount: String(amount),
+      note: input.note,
     });
-    const action = relayLighterTransferAction(quote);
-    throw new Error(
-      `Lighter → ${toKind} needs a Lighter L2 transfer (Relay request ${quote.requestId}): ` +
-        `toAccountIndex=${action.toAccountIndex} amount=${action.amount} usdcFee=${action.usdcFee} memo=${action.memo}. ` +
-        `Fireblocks cannot sign that L2 tx; register a Lighter API key (L1 EIP-191) then sendTx.`,
-    );
+    steps.push(...hop1.steps);
+    if (toKind === "hyperliquid") {
+      steps.push(
+        await transferToHyperliquidBridge({
+          rail,
+          amount: hop1.hop2Amount,
+          note: input.note,
+        }),
+      );
+    }
+    return { ok: true, railId: rail.id, amount: String(amount), steps };
   }
 
   const available = await vaultAssetAvailable(rail.vaultId, rail.arbUsdcAssetId);
@@ -307,4 +519,34 @@ export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFund
   }
 
   return { ok: true, railId: rail.id, amount: String(amount), steps };
+}
+
+type NamedRouteInput = Omit<RouteFundsInput, "fromVenueId" | "toVenueId"> & {
+  fromVenueId?: string;
+  toVenueId?: string;
+};
+
+/** Look up a proven pair in `VENUE_ROUTES`, then run `routeVenueFunds`. */
+export async function routeNamedVenue(
+  name: VenueRouteName,
+  input: NamedRouteInput,
+): Promise<RouteFundsResult> {
+  const pair = VENUE_ROUTES[name];
+  return routeVenueFunds({
+    fromVenueId: input.fromVenueId ?? pair.fromVenueId,
+    toVenueId: input.toVenueId ?? pair.toVenueId,
+    amount: input.amount,
+    note: input.note,
+    waitVaultMs: input.waitVaultMs,
+  });
+}
+
+/** Proven Hyperliquid → vault → Lighter. Same as POST /api/fireblocks/route `{ method: "hyperliquidToLighter" }`. */
+export async function routeHyperliquidToLighter(input: NamedRouteInput): Promise<RouteFundsResult> {
+  return routeNamedVenue("hyperliquidToLighter", input);
+}
+
+/** Proven Lighter → vault → Hyperliquid Bridge2. Amount must cover $1 L2 gas + HL min 5. */
+export async function routeLighterToHyperliquid(input: NamedRouteInput): Promise<RouteFundsResult> {
+  return routeNamedVenue("lighterToHyperliquid", input);
 }

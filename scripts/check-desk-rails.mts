@@ -8,13 +8,20 @@ import {
   DESK_RAILS,
   destForKind,
   hyperliquidWithdrawToCover,
+  isVenueRouteName,
+  listDeskRails,
   parsePositiveUsd,
   railById,
   railForVenue,
   resolveVenueRoute,
   venueKindOnRail,
   assertErc20TransferCredits,
+  assertHyperliquidDepositDest,
+  HYPERLIQUID_ARB_BRIDGE2,
+  VENUE_ROUTES,
+  assertVaultOnlyDest,
 } from "../src/lib/fireblocks-desk.ts";
+import { relayQuoteRecipient, usdcToMicro } from "../src/lib/relay-lighter.ts";
 
 test("eason_albert rail is the proven HL ↔ Lighter vault", () => {
   const rail = railById("eason_albert");
@@ -35,6 +42,21 @@ test("venue ids resolve onto the same rail", () => {
   assert.throws(() => railForVenue("unknown_venue"), /not on a desk rail/);
 });
 
+test("VENUE_ROUTES pin the proven HL ↔ Lighter pair", () => {
+  const rail = railById("eason_albert");
+  assert.equal(VENUE_ROUTES.hyperliquidToLighter.fromVenueId, rail.hyperliquidVenueId);
+  assert.equal(VENUE_ROUTES.hyperliquidToLighter.toVenueId, rail.lighterVenueId);
+  assert.equal(VENUE_ROUTES.lighterToHyperliquid.fromVenueId, rail.lighterVenueId);
+  assert.equal(VENUE_ROUTES.lighterToHyperliquid.toVenueId, rail.hyperliquidVenueId);
+  assert.equal(isVenueRouteName("hyperliquidToLighter"), true);
+  assert.equal(isVenueRouteName("lighterToHyperliquid"), true);
+  assert.equal(isVenueRouteName("routeVenueFunds"), false);
+  const listed = listDeskRails();
+  assert.equal(listed.length, DESK_RAILS.length);
+  listed[0].vaultId = "mutated";
+  assert.equal(DESK_RAILS[0].vaultId, "3");
+});
+
 test("HL → Lighter pairs onto the Lighter allowlisted dest", () => {
   const route = resolveVenueRoute("hyperliquid_fireblocks", "lighter_fireblocks");
   assert.equal(route.rail.id, "eason_albert");
@@ -45,10 +67,12 @@ test("HL → Lighter pairs onto the Lighter allowlisted dest", () => {
   assert.throws(() => assertErc20TransferCredits(route.dest), /Relay Depository/);
 });
 
-test("Lighter → HL pairs onto the Hyperliquid allowlisted dest", () => {
+test("Lighter → HL dest is not yet Bridge2", () => {
   const route = resolveVenueRoute("lighter_fireblocks", "hyperliquid_fireblocks");
   assert.equal(route.toKind, "hyperliquid");
   assert.equal(route.dest.id, "0688ebcf-3b2a-42cf-ba92-7be2ad93b986");
+  assert.throws(() => assertHyperliquidDepositDest(route.dest), /Bridge2/);
+  assert.equal(HYPERLIQUID_ARB_BRIDGE2.toLowerCase(), "0x2df1c51e09aecf9cacb7bc98cb1742757f163df7");
 });
 
 test("same venue and unknown amounts are rejected", () => {
@@ -60,10 +84,37 @@ test("same venue and unknown amounts are rejected", () => {
   assert.throws(() => parsePositiveUsd(""), /greater than 0/);
 });
 
+test("venue cash-out dest is the Fireblocks vault L1", () => {
+  const rail = railById("eason_albert");
+  assertVaultOnlyDest(rail, rail.l1Address, "ok");
+  assert.throws(
+    () => assertVaultOnlyDest(rail, "0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7", "HL withdraw"),
+    /vault L1/,
+  );
+});
+
 test("HL withdraw covers the shortfall plus the $1 fee", () => {
   assert.equal(hyperliquidWithdrawToCover(5, 1), null);
   assert.equal(hyperliquidWithdrawToCover(0, 1), "2");
   assert.equal(hyperliquidWithdrawToCover(0.25, 1), "1.75");
+});
+
+test("usdcToMicro is six decimals", () => {
+  assert.equal(usdcToMicro("2"), "2000000");
+  assert.equal(usdcToMicro(19), "19000000");
+});
+
+test("relayQuoteRecipient reads the vault L1", () => {
+  const rail = railById("eason_albert");
+  assert.equal(
+    relayQuoteRecipient({
+      steps: [],
+      details: { recipient: rail.l1Address },
+      raw: {},
+    }),
+    rail.l1Address,
+  );
+  assert.equal(relayQuoteRecipient({ steps: [], raw: {} }), undefined);
 });
 
 test("every rail has a vault, L1, asset, and at least one destination", () => {
