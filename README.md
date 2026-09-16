@@ -1,10 +1,10 @@
 # Fireblocks Co-Sign
 
-Operator desk for pairing a Fireblocks API bot to an [API Co-Signer](https://developers.fireblocks.com/docs/use-cosigners-for-signing-automation).
+Operator desk for a Fireblocks Signer bot plus venue trigger TAP.
 
-**Fireblocks workspace TAP is the only policy. Callback is off.** After TAP allows a transfer, the Co-Signer signs inside its enclave without posting this app.
+**Callback is off.** Fireblocks workspace TAP still gates signing. **TAP Console** (`/console`) sets account-margin and max-single-transfer triggers for Hyperliquid, Lighter, and MEXC.
 
-**Usage manual:** [docs/MANUAL.md](docs/MANUAL.md) — RSA key, Signer API user, TAP edits, sending a transfer, and the full path.
+**Usage manual:** [docs/MANUAL.md](docs/MANUAL.md)
 
 ## Full path
 
@@ -13,12 +13,13 @@ flowchart TD
   subgraph setup [One-time setup]
     A1[Generate RSA 4096 locally] --> A2[Create Signer API user + upload CSR]
     A2 --> A3[Pair API user to Co-Signer — no callback]
-    A3 --> A4[Console TAP ALLOW + designated signer]
+    A3 --> A4[Fireblocks TAP ALLOW + designated signer]
     A4 --> A5[Owner / Admin approve on mobile]
   end
 
   subgraph runtime [Each transfer]
-    B1[Bot signs JWT with RSA private key] --> B2[POST /v1/transactions]
+    B0[Venue TAP Console: margin + max transfer] --> B1[Bot signs JWT with RSA private key]
+    B1 --> B2[POST /v1/transactions]
     B2 --> TAP{Fireblocks TAP}
     TAP -->|BLOCK| X1[Fail — never reaches Co-Signer]
     TAP -->|2-TIER| F2[Human in Console / mobile]
@@ -30,8 +31,6 @@ flowchart TD
   setup --> runtime
 ```
 
-In-app: `/flow`.
-
 ## Run locally
 
 ```bash
@@ -39,8 +38,8 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:43147](http://localhost:43147).
+Open [http://localhost:43147/console](http://localhost:43147/console).
 
 ## Stack
 
-Next.js, TypeScript, Tailwind, shadcn/ui. Queue state is in-memory for the Node process.
+Next.js, TypeScript, Tailwind, shadcn/ui. Queue and venue TAP state are in-memory for the Node process.

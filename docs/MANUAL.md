@@ -2,7 +2,25 @@
 
 This desk pairs a Fireblocks **Signer API bot** to an **API Co-Signer**. **Fireblocks workspace TAP** is the only policy. **Callback is off.** After TAP allows a transfer, the Co-Signer signs inside its enclave without calling this app.
 
-Live diagram: `/flow`. TAP how-to: `/policy`. Pairing: `/bot`.
+Live diagram: `/flow`. Venue TAP Console: `/console`. Fireblocks TAP how-to: `/policy`. Pairing: `/bot`.
+
+---
+
+## TAP Console (venue triggers)
+
+Edit **account margin** (trigger %) and **max single transfer** for Hyperliquid, Lighter, and MEXC at `/console`.
+
+When live margin ratio is at or below the trigger, the bot may send a Fireblocks transfer up to that venue’s max. Fireblocks TAP still has to ALLOW the transfer.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/venues` | List venues, live (or mock) balances, thresholds |
+| `GET` | `/api/venues/:id` | One venue |
+| `PUT` | `/api/venues/:id/thresholds` | `{ enabled, marginTriggerPct, maxTransferUsd }` |
+| `PUT` | `/api/venues/:id/credentials` | Store API fields in process memory. Never written to disk. |
+| `POST` | `/api/venues/evaluate` | `{ venueId, amountUsd }` → allow / cap / reasons |
+
+Venue HTTP clients are stubbed. Paste credentials later; the adapter interface is already in `src/lib/venue-clients.ts`.
 
 ---
 
@@ -35,7 +53,9 @@ flowchart TD
 
   subgraph runtime [Each transfer]
     B1[Bot signs JWT with RSA private key] --> B2[POST /v1/transactions]
-    B2 --> TAP{Fireblocks TAP}
+    B2 --> VTAP{Venue TAP Console}
+    VTAP -->|margin above trigger or over max| X0[Bot does not send]
+    VTAP -->|armed and within max| TAP{Fireblocks TAP}
     TAP -->|BLOCK| F1[Request fails — never reaches Co-Signer]
     TAP -->|2-TIER| F2[Human review in Console and mobile]
     TAP -->|ALLOW| C1[Fireblocks cloud MPC share]

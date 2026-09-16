@@ -36,6 +36,9 @@ export function OverviewView({
         description="Pair a Signer API bot to a Co-Signer. Fireblocks TAP is the only policy. Callback is off — the enclave signs what TAP already allowed."
         actions={
           <div className="flex gap-2">
+            <Button nativeButton={false} variant="outline" render={<Link href="/console" />}>
+              TAP Console
+            </Button>
             <Button nativeButton={false} variant="outline" render={<Link href="/flow" />}>
               Full path
             </Button>

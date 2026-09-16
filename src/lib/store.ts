@@ -7,6 +7,7 @@ import {
   defaultRequests,
   seedAudit,
 } from "@/lib/seed";
+import { resetVenues } from "@/lib/venue-store";
 import type {
   ApiUser,
   AuditEvent,
@@ -348,6 +349,7 @@ export function proposeNewRule(input: {
 
 export function resetStore(): void {
   globalForStore.__fbCoSign = createState();
+  resetVenues();
 }
 
 export function ingestCallback(

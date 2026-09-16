@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TapCallbackMap } from "@/components/tap-callback-map";
@@ -8,8 +9,21 @@ export function PolicyView() {
       <PageHeader
         eyebrow="Transaction Authorization Policy"
         title="Fireblocks TAP"
-        description="Edit TAP in the Fireblocks Console. This desk does not store TAP. Callback is off."
+        description="Edit Fireblocks TAP in the Console Policy Editor. Trigger thresholds for Hyperliquid, Lighter, and MEXC live in TAP Console."
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Venue trigger TAP</CardTitle>
+          <CardDescription>
+            Account margin and max single transfer are edited in{" "}
+            <Link href="/console" className="text-teal-300 underline-offset-2 hover:underline">
+              TAP Console
+            </Link>
+            . Those gates run before the bot posts a Fireblocks transfer.
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
       <TapCallbackMap />
 

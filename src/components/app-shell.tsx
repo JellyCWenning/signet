@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   Shield,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -21,8 +22,9 @@ import { SimulateDialog } from "@/components/simulate-dialog";
 
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/console", label: "Console", icon: SlidersHorizontal },
   { href: "/queue", label: "Queue", icon: ClipboardList },
-  { href: "/policy", label: "TAP", icon: Gavel },
+  { href: "/policy", label: "Fireblocks TAP", icon: Gavel },
   { href: "/flow", label: "Flow", icon: GitBranch },
   { href: "/bot", label: "Bots", icon: Bot },
   { href: "/audit", label: "Audit", icon: ScrollText },
