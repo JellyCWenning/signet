@@ -6,7 +6,10 @@
  */
 export {
   DESK_RAILS,
+  HYPERLIQUID_ARB_BRIDGE2,
+  HYPERLIQUID_DEPOSIT_MIN_USDC,
   HYPERLIQUID_WITHDRAW_FEE_USDC,
+  LIGHTER_WITHDRAW_GAS_USDC,
   destForKind,
   hyperliquidWithdrawToCover,
   listDeskRails,
@@ -16,6 +19,7 @@ export {
   resolveVenueRoute,
   venueKindOnRail,
   assertErc20TransferCredits,
+  assertHyperliquidDepositDest,
   type AllowlistedDest,
   type DestCredit,
   type DeskRail,

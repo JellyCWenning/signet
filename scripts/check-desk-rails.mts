@@ -14,6 +14,8 @@ import {
   resolveVenueRoute,
   venueKindOnRail,
   assertErc20TransferCredits,
+  assertHyperliquidDepositDest,
+  HYPERLIQUID_ARB_BRIDGE2,
 } from "../src/lib/fireblocks-desk.ts";
 import { usdcToMicro } from "../src/lib/relay-lighter.ts";
 
@@ -46,10 +48,12 @@ test("HL → Lighter pairs onto the Lighter allowlisted dest", () => {
   assert.throws(() => assertErc20TransferCredits(route.dest), /Relay Depository/);
 });
 
-test("Lighter → HL pairs onto the Hyperliquid allowlisted dest", () => {
+test("Lighter → HL dest is not yet Bridge2", () => {
   const route = resolveVenueRoute("lighter_fireblocks", "hyperliquid_fireblocks");
   assert.equal(route.toKind, "hyperliquid");
   assert.equal(route.dest.id, "0688ebcf-3b2a-42cf-ba92-7be2ad93b986");
+  assert.throws(() => assertHyperliquidDepositDest(route.dest), /Bridge2/);
+  assert.equal(HYPERLIQUID_ARB_BRIDGE2.toLowerCase(), "0x2df1c51e09aecf9cacb7bc98cb1742757f163df7");
 });
 
 test("same venue and unknown amounts are rejected", () => {

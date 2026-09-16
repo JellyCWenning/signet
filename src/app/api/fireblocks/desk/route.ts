@@ -21,7 +21,10 @@ export async function GET() {
       hyperliquidWithdraw: "TYPED_MESSAGE withdraw3 (plus $1 HL fee), then wait for USDC_ARB in the vault",
       lighterDeposit:
         "Relay quote/v2 + CONTRACT_CALL USDC.approve (or leftover allowance) + CONTRACT_CALL depositErc20. ERC20 TRANSFER does not credit.",
-      hyperliquidDeposit: "TRANSFER / CONTRACT_CALL USDC_ARB to the Hyperliquid allowlisted contract",
+      lighterWithdraw:
+        "Two hops: Lighter L2 transfer via Relay to the vault, then Fireblocks TRANSFER to Hyperliquid Bridge2. Hop 1 needs a Lighter API key.",
+      hyperliquidDeposit:
+        "TRANSFER native USDC_ARB to Hyperliquid Bridge2 0x2Df1c51E… (min 5). Catalog dest 0xa95d9c1f is not Bridge2.",
       skipWithdraw: "If the vault already holds enough USDC_ARB, routing only TRANSFERs",
       notSendEndpoint:
         "Do not use POST /api/fireblocks/send for venue-to-venue routing — venue TAP remaining-margin will block when accounts are healthy",

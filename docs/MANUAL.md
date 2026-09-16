@@ -240,14 +240,18 @@ Do **not** use `POST /api/fireblocks/send` for this. That endpoint is venue TAP 
 
 ```mermaid
 flowchart TD
-  A[POST /api/fireblocks/route] --> B{Vault has enough USDC_ARB?}
+  A[POST /api/fireblocks/route] --> F{From venue}
+  F -->|Hyperliquid| B{Vault has enough USDC_ARB?}
   B -->|yes| C{Dest credit mode}
-  B -->|no and from Hyperliquid| W[TYPED_MESSAGE withdraw3 + $1 HL fee]
+  B -->|no| W[TYPED_MESSAGE withdraw3 + $1 HL fee]
   W --> H[POST Hyperliquid /exchange]
   H --> V[Wait until vault USDC_ARB covers amount]
   V --> C
   C -->|relay_deposit_erc20 Lighter| R[Relay quote/v2 then CONTRACT_CALL approve + depositErc20]
   C -->|erc20_transfer| T[TRANSFER to allowlisted dest]
+  F -->|Lighter| L1[Hop 1: Lighter L2 transfer via Relay to vault]
+  L1 --> L2[Wait vault USDC_ARB]
+  L2 --> L3[Hop 2: TRANSFER to Hyperliquid Bridge2]
 ```
 
 | Stage | What | Why |
@@ -256,13 +260,14 @@ flowchart TD
 | Hyperliquid `/exchange` | Broadcast `withdraw3` with `v = 27 + sig.v` | Moves USDC from HL to the vault L1 on Arbitrum. HL charges **$1** on top of the requested amount. |
 | Wait vault | Poll `USDC_ARB_3SBJ` available | Bridging/credit can take minutes. |
 | Lighter credit | Relay `POST /quote/v2` (`destinationChainId` **3586256**, `recipient` = Lighter `account_index`) then Fireblocks **CONTRACT_CALL** `USDC.approve` (if needed) + **CONTRACT_CALL** `depositErc20` | `0x4cd00e…` is Relay Depository. Naked ERC20 TRANSFER is not indexed. TAP must ALLOW CONTRACT_CALL to the Depository and to USDC `0xaf88…` (or leftover allowance from a prior DeFi approve). |
-| Hyperliquid dest | Allowlisted contract `0688ebcf-…` | Still a contract; confirm credit mode before a reverse test. |
+| Reverse hop 1 | Lighter L2 `transfer` to Relay account `731033` with memo, then Relay pays the vault L1 | Fireblocks cannot sign Lighter L2. Needs a Lighter API key (`sendTx`) plus Fireblocks RAW EIP-191 `L1Sig`. Relay L2 gas is **$1**. |
+| Reverse hop 2 | Fireblocks TRANSFER native USDC to Hyperliquid **Bridge2** `0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7` | Credits the sending vault L1. Min **5 USDC**. Catalog dest `0xa95d9c1f…` is not Bridge2 — do not send there. |
 
 `routeVenueFunds` runs Relay `quote/v2` then Fireblocks **CONTRACT_CALL** `USDC.approve` (Fireblocks APPROVE only as fallback; skipped when on-chain allowance already covers the amount) + **CONTRACT_CALL** `depositErc20` for Lighter. It still refuses a naked ERC20 TRANSFER to that dest.
 
 Vault buffer: `POST /api/fireblocks/vault/ensure` `{ "amount": "19", "railId": "eason_albert" }` withdraws from Hyperliquid until the vault holds that much (HL still takes $1 extra). Then route 2 USDC to Lighter from the vault.
 
-Lighter → vault: Relay quote returns a Lighter L2 `transfer` (API-key signer). Quote is wired; sendTx still needs a Lighter API key registered with an L1 EIP-191.
+Lighter → Hyperliquid is **two hops**, same as the forward path: Lighter L2 → vault, then vault → HL Bridge2. Hop 1 is quoted; sendTx still needs a Lighter API key. Do not spend the leftover vault USDC as a fake reverse.
 
 ### Library (import this)
 

@@ -46,6 +46,13 @@ export interface DeskRail {
 /** Hyperliquid Arbitrum withdraw fee, charged on top of the requested amount. */
 export const HYPERLIQUID_WITHDRAW_FEE_USDC = "1";
 
+/** Official Arbitrum Bridge2. Native USDC TRANSFER here credits the sending L1. Min 5 USDC. */
+export const HYPERLIQUID_ARB_BRIDGE2 = "0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7";
+export const HYPERLIQUID_DEPOSIT_MIN_USDC = 5;
+
+/** Relay Lighter withdraw quotes a 1 USDC L2 gas fee (`usdcFee`). */
+export const LIGHTER_WITHDRAW_GAS_USDC = "1";
+
 export const DESK_RAILS: DeskRail[] = [
   {
     id: "eason_albert",
@@ -69,6 +76,7 @@ export const DESK_RAILS: DeskRail[] = [
         type: "EXTERNAL_WALLET",
         id: "0688ebcf-3b2a-42cf-ba92-7be2ad93b986",
         name: "Hyperliquid contract address",
+        // Allowlisted in Fireblocks; this is NOT Bridge2. Vault → HL must use HYPERLIQUID_ARB_BRIDGE2.
         address: "0xa95d9c1f655341597c94393fddc30cf3c08e4fce",
       },
     },
@@ -155,6 +163,17 @@ export function assertErc20TransferCredits(dest: AllowlistedDest): void {
       `${dest.name} is Relay Depository 0x4cd00e… — ERC20 TRANSFER does not credit Lighter. ` +
         `Need Relay quote (POST https://api.relay.link/quote/v2, toChainId 3586256, recipient=account_index) then Fireblocks CONTRACT_CALL depositErc20. ` +
         `Incident: tx 0x92de68a82ba47e4ed3249c5a8004f022b0e227932e8ce032868054ffc396e70a (1 USDC) Relay status unknown; Lighter 747083 unchanged.`,
+    );
+  }
+}
+
+/** Vault → Hyperliquid is a USDC TRANSFER to Bridge2. Other allowlisted addresses do not credit this L1. */
+export function assertHyperliquidDepositDest(dest: AllowlistedDest): void {
+  if (dest.address?.toLowerCase() !== HYPERLIQUID_ARB_BRIDGE2.toLowerCase()) {
+    throw new Error(
+      `Vault → Hyperliquid must TRANSFER native USDC_ARB to Bridge2 ${HYPERLIQUID_ARB_BRIDGE2} ` +
+        `(credits the sending vault L1). Catalog dest ${dest.address ?? "unset"} (${dest.id} ${dest.name}) is not Bridge2 — ` +
+        `allowlist Bridge2 in Fireblocks Console, then update DESK_RAILS. HL min deposit is ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC.`,
     );
   }
 }

@@ -1,4 +1,6 @@
 import {
+  assertHyperliquidDepositDest,
+  HYPERLIQUID_DEPOSIT_MIN_USDC,
   hyperliquidWithdrawToCover,
   parsePositiveUsd,
   resolveVenueRoute,
@@ -317,12 +319,54 @@ async function depositLighterViaRelay(input: {
   return steps;
 }
 
+/** Lighter L2 → vault. Relay quote is live; sendTx needs a Lighter API key + L1Sig. */
+async function withdrawLighterToVault(input: {
+  rail: DeskRail;
+  dest: AllowlistedDest;
+  toKind: string;
+  amount: string;
+  note?: string;
+}): Promise<RouteStep[]> {
+  const accountIndex = input.rail.lighterAccountIndex;
+  if (!accountIndex) throw new Error(`Rail ${input.rail.id} missing lighterAccountIndex`);
+  const quote = await quoteRelayLighterWithdraw({
+    accountIndex,
+    l1Address: input.rail.l1Address,
+    amountUsdc: input.amount,
+  });
+  const action = relayLighterTransferAction(quote);
+  let hop2 =
+    `Fireblocks TRANSFER ${input.amount} USDC_ARB from vault ${input.rail.vaultId} to ${input.dest.name} ` +
+    `(${input.dest.address ?? input.dest.id}).`;
+  if (input.toKind === "hyperliquid") {
+    try {
+      assertHyperliquidDepositDest(input.dest);
+      if (Number(input.amount) < HYPERLIQUID_DEPOSIT_MIN_USDC) {
+        hop2 =
+          `Vault → Hyperliquid TRANSFER to Bridge2 after L2 credit. HL min deposit is ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC; ` +
+          `${input.amount} is too small even if hop 1 lands (Relay also takes ~1 USDC L2 gas).`;
+      } else {
+        hop2 = `Fireblocks TRANSFER native USDC_ARB to Bridge2 (credits vault L1 ${input.rail.l1Address}). Min ${HYPERLIQUID_DEPOSIT_MIN_USDC} USDC.`;
+      }
+    } catch (error) {
+      hop2 = error instanceof Error ? error.message : String(error);
+    }
+  }
+  throw new Error(
+    `Lighter → vault → ${input.toKind} is two hops (same shape as HL → vault → Lighter). ` +
+      `Hop 1/2 Lighter → vault: L2 transfer Relay request ${quote.requestId} toAccountIndex=${action.toAccountIndex} ` +
+      `amount=${action.amount} usdcFee=${action.usdcFee} memo=${action.memo}. ` +
+      `Needs a Lighter API key (index ≥ 4) to sendTx; Fireblocks then RAW-signs EIP-191 L1Sig. Co-Signer cannot sign Lighter L2. ` +
+      `Hop 2/2 vault → ${input.toKind}: ${hop2}`,
+  );
+}
+
 /**
  * Move USDC between TAP venues that share a Fireblocks vault (same L1).
  *
  * Hyperliquid → Lighter: TYPED_MESSAGE withdraw3 if vault is short, then Relay
  * quote + CONTRACT_CALL USDC.approve (or leftover allowance) + CONTRACT_CALL depositErc20.
- * Lighter → vault/HL: Relay L2 transfer (needs Lighter API signer) — quoted here.
+ * Lighter → Hyperliquid: Lighter L2 → vault (Relay), then vault USDC TRANSFER to HL Bridge2.
  */
 export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFundsResult> {
   const amount = parsePositiveUsd(input.amount);
@@ -330,18 +374,14 @@ export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFund
   const steps: RouteStep[] = [];
 
   if (fromKind === "lighter") {
-    const accountIndex = rail.lighterAccountIndex;
-    if (!accountIndex) throw new Error(`Rail ${rail.id} missing lighterAccountIndex`);
-    const quote = await quoteRelayLighterWithdraw({
-      accountIndex,
-      l1Address: rail.l1Address,
-      amountUsdc: String(amount),
-    });
-    const action = relayLighterTransferAction(quote);
-    throw new Error(
-      `Lighter → ${toKind} needs a Lighter L2 transfer (Relay request ${quote.requestId}): ` +
-        `toAccountIndex=${action.toAccountIndex} amount=${action.amount} usdcFee=${action.usdcFee} memo=${action.memo}. ` +
-        `Fireblocks cannot sign that L2 tx; register a Lighter API key (L1 EIP-191) then sendTx.`,
+    steps.push(
+      ...(await withdrawLighterToVault({
+        rail,
+        dest,
+        toKind,
+        amount: String(amount),
+        note: input.note,
+      })),
     );
   }
 
@@ -376,6 +416,7 @@ export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFund
       })),
     );
   } else {
+    if (toKind === "hyperliquid") assertHyperliquidDepositDest(dest);
     steps.push(await transferToDest({ rail, dest, amount: String(amount), note: input.note }));
   }
 
