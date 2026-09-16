@@ -90,7 +90,7 @@ export const EXCHANGE_CATALOG: ExchangeCatalogEntry[] = [
     id: "hyperliquid",
     name: "Hyperliquid",
     kind: "perp",
-    blurb: "Reads clearinghouseState from the Hyperliquid info API.",
+    blurb: "Reads perp clearinghouseState plus spot USDC from the Hyperliquid info API.",
     credentialFields: [
       {
         key: "account_address",

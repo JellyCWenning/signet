@@ -182,7 +182,7 @@ export function AccountsView({ initial }: { initial: ConsolePayload }) {
                   Remove
                 </Button>
               ) : (
-                <p className="text-xs text-muted-foreground">Albert seed account</p>
+                <p className="text-xs text-muted-foreground">Seeded TAP account</p>
               )}
             </CardContent>
           </Card>

@@ -21,6 +21,8 @@ Seeded accounts:
 
 Add more Hyperliquid / Lighter **read-only** watch accounts at `/accounts` (public address or account index only; not Fireblocks vaults). They persist in `accounts.local.json` on the host.
 
+Hyperliquid equity is perp `clearinghouseState` plus spot USDC (and other USD stables). Money sitting only in spot used to look like $0 because the desk previously read perps only.
+
 When remaining margin is at or below the trigger, the bot may send a Fireblocks transfer up to that account’s max. Fireblocks TAP still has to ALLOW the transfer.
 
 | Method | Path | Purpose |
