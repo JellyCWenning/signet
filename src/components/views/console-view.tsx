@@ -203,6 +203,7 @@ function VenueCard({
           <p className="text-xs text-muted-foreground">
             {venue.id}
             {venue.kind === "perp" ? " · perp" : " · cex"}
+            {venue.queriedAs ? ` · ${venue.queriedAs}` : ""}
           </p>
       </CardHeader>
       <CardContent className="space-y-4">

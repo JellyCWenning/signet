@@ -65,6 +65,7 @@ export interface VenueSnapshot {
   enabled: boolean;
   thresholds: VenueThresholds;
   live: VenueLiveState;
+  queriedAs?: string;
   credentialsConfigured: boolean;
   credentialHints: CredentialHint[];
   credentialFields: CredentialField[];

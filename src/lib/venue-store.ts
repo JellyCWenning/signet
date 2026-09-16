@@ -62,6 +62,10 @@ async function snapshotOf(record: VenueRecord): Promise<VenueSnapshot> {
     enabled: record.enabled,
     thresholds: { ...record.thresholds },
     live,
+    queriedAs:
+      record.credentials.account_address ||
+      record.credentials.l1_address ||
+      record.credentials.account_index,
     credentialsConfigured: requiredCredentialsSet(record.exchange, record.credentials),
     credentialHints: credentialHints(record.exchange, record.credentials),
     credentialFields: catalog.credentialFields,
