@@ -300,7 +300,7 @@ curl -sS -X POST http://127.0.0.1:43147/api/fireblocks/route \
   -d '{"from":"hyperliquid_fireblocks","to":"lighter_fireblocks","amount":"1"}'
 ```
 
-Proven vault hop (vault 3, API user `…b07a`, Co-Signer Online): TYPED_MESSAGE `faea8822-…` COMPLETED, Hyperliquid `ok`, TRANSFER `859345ad-…` txHash `0x92de68a8…e70a` **on-chain to Relay Depository — Lighter account not credited**. Working Lighter credit: DeFi CONTRACT_CALL `0x7de2ed70…` `depositErc20` (~12,516 USDC). Live 2 USDC route (vault already funded, no extra HL withdraw): Fireblocks APPROVE `14caf053-…` tx `0xd9bb4f70…` + CONTRACT_CALL `eec59150-…` tx `0x7b2fe981…` `depositErc20`, Relay `0x17895430…` success, Lighter `747083` 12518.384878 → **12520.364716**. Lighter → HL still needs a Lighter L2 API key.
+Proven reverse (Lighter → vault → HL, 8 USDC in): L2 `sendTx` + Fireblocks ETH_MESSAGE `611490ed-…`, Relay `0x17895448…` success, vault 36 → 43.975493, then TRANSFER `9d3f2c22-…` tx `0x37e75056…` to Bridge2. Lighter 12520.364716 → **12511.364716**. HL spot 12962.555982 → **12970.531475**. Vault back to 36.
 
 Catalog check (no network): `npm run check:rails`.
 
