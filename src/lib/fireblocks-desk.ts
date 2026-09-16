@@ -9,11 +9,19 @@
 
 export type VenueKindOnRail = "hyperliquid" | "lighter";
 
+export type DestCredit = "erc20_transfer" | "relay_deposit_erc20";
+
 export interface AllowlistedDest {
   type: "EXTERNAL_WALLET" | "INTERNAL_WALLET" | "VAULT_ACCOUNT";
   id: string;
   name: string;
   address?: string;
+  /**
+   * How USDC actually credits on the venue.
+   * `relay_deposit_erc20` is Relay Depository `depositErc20` — a Fireblocks
+   * TRANSFER does **not** credit (1 USDC tx 0x92de68a8… sat in the contract).
+   */
+  credit?: DestCredit;
 }
 
 export interface DeskRail {
@@ -48,6 +56,7 @@ export const DESK_RAILS: DeskRail[] = [
         id: "ec38a57b-3656-4b1d-b122-a1ac3f1422ac",
         name: "lighter contract_eason",
         address: "0x4cd00e387622c35bddb9b4c962c136462338bc31",
+        credit: "relay_deposit_erc20",
       },
       hyperliquid: {
         type: "EXTERNAL_WALLET",
@@ -133,6 +142,16 @@ export function addUsd(left: string, right: string): string {
  * Extra USDC to withdraw from Hyperliquid so the vault can cover `requested`.
  * Returns null when the vault already holds enough. HL charges $1 on top.
  */
+export function assertErc20TransferCredits(dest: AllowlistedDest): void {
+  if (dest.credit === "relay_deposit_erc20") {
+    throw new Error(
+      `${dest.name} is Relay Depository 0x4cd00e… — ERC20 TRANSFER does not credit Lighter. ` +
+        `Need Relay quote (POST https://api.relay.link/quote/v2, toChainId 3586256, recipient=account_index) then Fireblocks CONTRACT_CALL depositErc20. ` +
+        `Incident: tx 0x92de68a82ba47e4ed3249c5a8004f022b0e227932e8ce032868054ffc396e70a (1 USDC) Relay status unknown; Lighter 747083 unchanged.`,
+    );
+  }
+}
+
 export function hyperliquidWithdrawToCover(available: number, requested: number): string | null {
   if (!Number.isFinite(available) || available < 0) throw new Error("Invalid vault available");
   if (!Number.isFinite(requested) || requested <= 0) throw new Error("amount must be greater than 0");

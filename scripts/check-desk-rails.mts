@@ -13,6 +13,7 @@ import {
   railForVenue,
   resolveVenueRoute,
   venueKindOnRail,
+  assertErc20TransferCredits,
 } from "../src/lib/fireblocks-desk.ts";
 
 test("eason_albert rail is the proven HL ↔ Lighter vault", () => {
@@ -39,6 +40,8 @@ test("HL → Lighter pairs onto the Lighter allowlisted dest", () => {
   assert.equal(route.fromKind, "hyperliquid");
   assert.equal(route.toKind, "lighter");
   assert.equal(route.dest.name, "lighter contract_eason");
+  assert.equal(route.dest.credit, "relay_deposit_erc20");
+  assert.throws(() => assertErc20TransferCredits(route.dest), /Relay Depository/);
 });
 
 test("Lighter → HL pairs onto the Hyperliquid allowlisted dest", () => {

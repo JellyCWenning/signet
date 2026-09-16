@@ -30,12 +30,12 @@ await routeVenueFunds({
 });
 ```
 
-Flow: if the vault is short, Co-Signer signs Hyperliquid `withdraw3` (TYPED_MESSAGE, plus **$1** HL fee) → wait for `USDC_ARB` → TRANSFER to the allowlisted dest. If the vault already has enough, only TRANSFER. Do **not** use `POST /api/fireblocks/send` for this (venue remaining-margin TAP blocks healthy accounts).
+Flow: if the vault is short, Co-Signer signs Hyperliquid `withdraw3` (TYPED_MESSAGE, plus **$1** HL fee) → wait for `USDC_ARB` → dest-specific credit. **Lighter dest `0x4cd00e…` is Relay Depository** — a Fireblocks ERC20 TRANSFER does **not** credit the Lighter account (1 USDC tx `0x92de68a8…` was not credited). Deposit needs Relay `quote/v2` + `CONTRACT_CALL depositErc20`. Do **not** use `POST /api/fireblocks/send` for this (venue remaining-margin TAP blocks healthy accounts).
 
 Add another Fireblocks account:
 
 1. Allowlist dest wallets in Fireblocks Console.
-2. TAP ALLOW for TRANSFER **and** TYPED_MESSAGE, designated signer = the paired API user, Co-Signer Online, callback off.
+2. TAP ALLOW for TRANSFER, TYPED_MESSAGE, and **CONTRACT_CALL** (Lighter is Relay `depositErc20`, not ERC20 TRANSFER), designated signer = the paired API user, Co-Signer Online, callback off.
 3. Add a `DESK_RAILS` row + matching `venues.ts` seeds.
 4. `POST /api/fireblocks/route` with the new venue ids.
 

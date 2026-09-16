@@ -1,4 +1,5 @@
 import {
+  assertErc20TransferCredits,
   hyperliquidWithdrawToCover,
   parsePositiveUsd,
   resolveVenueRoute,
@@ -104,13 +105,14 @@ async function transferToDest(input: {
 /**
  * Move USDC between TAP venues that share a Fireblocks vault (same L1).
  *
- * Hyperliquid → Lighter: TYPED_MESSAGE withdraw3 (plus $1 HL fee) then TRANSFER
- * to the Lighter allowlisted contract. Vault → dest skips withdraw if the
- * vault already holds enough USDC_ARB.
+ * Hyperliquid → Lighter: TYPED_MESSAGE withdraw3 (plus $1 HL fee), then a
+ * dest-specific credit (Relay `depositErc20` for Lighter — not ERC20 TRANSFER).
+ * Vault → dest skips HL withdraw if the vault already holds enough USDC_ARB.
  */
 export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFundsResult> {
   const amount = parsePositiveUsd(input.amount);
   const { rail, fromKind, dest } = resolveVenueRoute(input.fromVenueId, input.toVenueId);
+  assertErc20TransferCredits(dest);
   const steps: RouteStep[] = [];
   const available = await vaultAssetAvailable(rail.vaultId, rail.arbUsdcAssetId);
   const withdrawAmount = hyperliquidWithdrawToCover(available, amount);
