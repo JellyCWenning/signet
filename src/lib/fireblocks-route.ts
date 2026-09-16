@@ -1,6 +1,7 @@
 import {
   HYPERLIQUID_ARB_BRIDGE2,
   HYPERLIQUID_DEPOSIT_MIN_USDC,
+  assertVaultOnlyDest,
   hyperliquidWithdrawToCover,
   parsePositiveUsd,
   resolveVenueRoute,
@@ -31,6 +32,7 @@ import {
   quoteRelayLighterWithdraw,
   RELAY_DEPOSITORY,
   relayLighterTransferAction,
+  relayQuoteRecipient,
   relayStepCalldata,
   usdcToMicro,
   waitLighterCollateral,
@@ -82,6 +84,11 @@ export async function signAndSubmitHyperliquidWithdraw(input: {
     amount: input.amount,
     timeMs,
   });
+  assertVaultOnlyDest(
+    input.rail,
+    String(typedData.message.destination),
+    "Hyperliquid withdraw3 destination",
+  );
   const created = await createFireblocksTypedMessage({
     vaultId: input.rail.vaultId,
     typedData,
@@ -346,6 +353,11 @@ async function withdrawLighterToVault(input: {
     l1Address: input.rail.l1Address,
     amountUsdc: input.amount,
   });
+  assertVaultOnlyDest(
+    input.rail,
+    relayQuoteRecipient(quote) ?? input.rail.l1Address,
+    "Lighter Relay withdraw recipient",
+  );
   const requestId = quote.requestId;
   if (!requestId) throw new Error("Relay withdraw quote missing requestId");
   const action = relayLighterTransferAction(quote);

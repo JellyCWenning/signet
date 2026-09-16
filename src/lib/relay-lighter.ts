@@ -65,7 +65,7 @@ export interface RelayQuoteStepItem {
 export interface RelayQuote {
   requestId?: string;
   steps: Array<{ id?: string; items?: Array<{ data?: RelayQuoteStepItem; check?: { endpoint?: string } }> }>;
-  details?: { currencyOut?: { amountFormatted?: string; amount?: string } };
+  details?: { currencyOut?: { amountFormatted?: string; amount?: string }; recipient?: string };
   fees?: { relayer?: { amountUsd?: string } };
   raw: unknown;
 }
@@ -96,6 +96,19 @@ export async function quoteRelayLighterDeposit(input: {
   }
   const rec = raw as RelayQuote;
   return { ...rec, raw };
+}
+
+export function relayQuoteRecipient(quote: RelayQuote): string | undefined {
+  const blobs: unknown[] = [quote, quote.details, quote.raw];
+  if (quote.raw && typeof quote.raw === "object") {
+    blobs.push((quote.raw as { details?: unknown }).details);
+  }
+  for (const blob of blobs) {
+    if (!blob || typeof blob !== "object") continue;
+    const rec = (blob as { recipient?: unknown }).recipient;
+    if (typeof rec === "string" && rec.trim()) return rec;
+  }
+  return undefined;
 }
 
 export function relayStepCalldata(

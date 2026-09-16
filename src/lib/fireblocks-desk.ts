@@ -168,6 +168,20 @@ export function parsePositiveUsd(amount: string): number {
   return n;
 }
 
+export function sameEthAddress(left: string, right: string): boolean {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+/** Venue cash-out in this library always lands on the rail's Fireblocks vault L1. */
+export function assertVaultOnlyDest(rail: DeskRail, destination: string, label: string): void {
+  if (!sameEthAddress(destination, rail.l1Address)) {
+    throw new Error(
+      `${label} must be this rail's Fireblocks vault L1 ${rail.l1Address}, got ${destination}. ` +
+        `HL and Lighter do not skip the vault.`,
+    );
+  }
+}
+
 export function addUsd(left: string, right: string): string {
   const sum = Number(left) + Number(right);
   if (!Number.isFinite(sum) || sum < 0) throw new Error("Invalid USD amount");

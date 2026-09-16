@@ -234,7 +234,7 @@ This desk can also submit that same `POST /v1/transactions` from Console **Send 
 
 Cookbook for both proven walks, env, TAP, and live hashes: **[ROUTING.md](ROUTING.md)**.
 
-Hyperliquid ↔ Lighter on the **same** Fireblocks L1 is two hops through the vault. Developers call the named functions — do not add a second transaction builder.
+Hyperliquid ↔ Lighter on the **same** Fireblocks L1 is two hops through the vault. Developers call the named functions — do not add a second transaction builder. Venue cash-out dest is the vault L1 only; **Co-Signer is required even for that hop.**
 
 | Direction | Library | HTTP |
 | --- | --- | --- |

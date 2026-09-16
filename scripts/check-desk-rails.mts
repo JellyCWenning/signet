@@ -19,8 +19,9 @@ import {
   assertHyperliquidDepositDest,
   HYPERLIQUID_ARB_BRIDGE2,
   VENUE_ROUTES,
+  assertVaultOnlyDest,
 } from "../src/lib/fireblocks-desk.ts";
-import { usdcToMicro } from "../src/lib/relay-lighter.ts";
+import { relayQuoteRecipient, usdcToMicro } from "../src/lib/relay-lighter.ts";
 
 test("eason_albert rail is the proven HL ↔ Lighter vault", () => {
   const rail = railById("eason_albert");
@@ -83,6 +84,15 @@ test("same venue and unknown amounts are rejected", () => {
   assert.throws(() => parsePositiveUsd(""), /greater than 0/);
 });
 
+test("venue cash-out dest is the Fireblocks vault L1", () => {
+  const rail = railById("eason_albert");
+  assertVaultOnlyDest(rail, rail.l1Address, "ok");
+  assert.throws(
+    () => assertVaultOnlyDest(rail, "0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7", "HL withdraw"),
+    /vault L1/,
+  );
+});
+
 test("HL withdraw covers the shortfall plus the $1 fee", () => {
   assert.equal(hyperliquidWithdrawToCover(5, 1), null);
   assert.equal(hyperliquidWithdrawToCover(0, 1), "2");
@@ -92,6 +102,19 @@ test("HL withdraw covers the shortfall plus the $1 fee", () => {
 test("usdcToMicro is six decimals", () => {
   assert.equal(usdcToMicro("2"), "2000000");
   assert.equal(usdcToMicro(19), "19000000");
+});
+
+test("relayQuoteRecipient reads the vault L1", () => {
+  const rail = railById("eason_albert");
+  assert.equal(
+    relayQuoteRecipient({
+      steps: [],
+      details: { recipient: rail.l1Address },
+      raw: {},
+    }),
+    rail.l1Address,
+  );
+  assert.equal(relayQuoteRecipient({ steps: [], raw: {} }), undefined);
 });
 
 test("every rail has a vault, L1, asset, and at least one destination", () => {

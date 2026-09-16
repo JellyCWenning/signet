@@ -35,6 +35,8 @@ export async function GET() {
       lighterToHyperliquid:
         "Lighter L2 sendTx + Fireblocks ETH_MESSAGE L1Sig to vault, then TRANSFER native USDC_ARB to Hyperliquid Bridge2 0x2Df1c51E (min 5). Catalog dest 0xa95d9c1f is not Bridge2.",
       skipWithdraw: "If the vault already holds enough USDC_ARB, Hyperliquid→Lighter only runs the Relay hop.",
+      vaultHub:
+        "HL withdraw3 and Lighter Relay withdraw recipient are this rail's Fireblocks vault L1 only. Both need the Co-Signer. There is no skip-the-vault hop.",
       notSendEndpoint:
         "Do not use POST /api/fireblocks/send for venue-to-venue routing — venue TAP remaining-margin will block when accounts are healthy",
     },

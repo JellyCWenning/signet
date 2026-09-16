@@ -22,6 +22,7 @@ export {
   venueKindOnRail,
   assertErc20TransferCredits,
   assertHyperliquidDepositDest,
+  assertVaultOnlyDest,
   VENUE_ROUTES,
   type AllowlistedDest,
   type DestCredit,

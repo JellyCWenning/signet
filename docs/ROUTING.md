@@ -154,6 +154,21 @@ ALLOW + designated signer = the paired API user. Co-Signer Online. Callback empt
 
 Cross-vault (two L1s) is not wired.
 
+## Hub rule (vault only + Co-Signer)
+
+Hyperliquid and Lighter **cash out only to this rail's Fireblocks vault L1**. There is no direct venue↔venue hop that skips the vault.
+
+| Leg | Destination this library will sign | Who must sign |
+| --- | --- | --- |
+| Hyperliquid `withdraw3` | vault L1 (`DESK_RAILS[].l1Address`) | Fireblocks Co-Signer `TYPED_MESSAGE` |
+| Lighter Relay withdraw | Relay quote `recipient` = vault L1 (L2 first goes to Relay account `731033`, then Relay pays that L1) | Lighter API key (L2) **and** Co-Signer `ETH_MESSAGE` L1Sig |
+| vault → Lighter | Relay Depository `depositErc20` | Co-Signer `CONTRACT_CALL` / `APPROVE` |
+| vault → Hyperliquid | Bridge2 `0x2Df1c51E…` only | Co-Signer `TRANSFER` |
+
+Even the vault hop needs the Co-Signer. Callback is off, so TAP ALLOW + designated signer auto-signs; it is still the Virginia Nitro share.
+
+Out of this library: Lighter web/app keys 0–3, and Fireblocks Console creating a TYPED_MESSAGE / TRANSFER to some other address. Named methods refuse a non-vault cash-out dest (`assertVaultOnlyDest`).
+
 ## Do not
 
 - ERC20 TRANSFER to Relay Depository `0x4cd00e…`
