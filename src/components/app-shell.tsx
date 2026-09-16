@@ -23,7 +23,7 @@ const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/queue", label: "Queue", icon: ClipboardList },
   { href: "/policy", label: "TAP", icon: Gavel },
-  { href: "/flow", label: "流程", icon: GitBranch },
+  { href: "/flow", label: "Flow", icon: GitBranch },
   { href: "/bot", label: "Bots", icon: Bot },
   { href: "/audit", label: "Audit", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },

@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Fireblocks Co-Sign",
   description:
-    "Callback handler and operator desk for Fireblocks API Co-Signers.",
+    "Pair a Fireblocks Signer bot to an API Co-Signer. TAP is the only policy. Callback is off.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

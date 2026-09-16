@@ -63,7 +63,7 @@ function createState(now = Date.now()): CoSignState {
         id: "bot_hello",
         at: new Date(now - 60_000).toISOString(),
         direction: "out",
-        text: "Ops bot connected. Callback is off. Fireblocks TAP is the only gate; the Co-Signer signs in its enclave.",
+        text: "Ops bot connected. Callback off. TAP is the only gate. Bots sign JWTs with RSA; the enclave signs TAP-allowed transfers.",
       },
     ],
   };

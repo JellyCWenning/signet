@@ -49,27 +49,47 @@ export function SettingsView({
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
+            <CardTitle>Bot credentials</CardTitle>
+            <CardDescription>
+              Creating a transfer is an API call. Fireblocks will not accept an API key without a
+              JWT signed by the matching RSA private key.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>
+              Generate <code className="font-mono text-teal-300">fireblocks_secret.key</code> on
+              your machine, upload the CSR when you add the Signer API user, keep the private key
+              off this repo. See docs/MANUAL.md.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Callback</CardTitle>
             <CardDescription>
-              Do not set a callback URL on the Co-Signer. TAP-allowed requests are signed in the enclave immediately.
+              Do not set a callback URL on the Co-Signer. TAP-allowed requests are signed in the
+              enclave immediately.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p className="text-sm text-muted-foreground">
-              Fireblocks docs: if no Callback Handler is configured for a paired API user, the
-              Co-Signer automatically signs or approves every request it receives for that user.
+              If no Callback Handler is configured for a paired API user, the Co-Signer
+              automatically signs every request it receives for that user.
             </p>
             <p className="text-xs text-muted-foreground">
-              On the Co-Signer host: skip callback during <code className="font-mono text-teal-300">add-user</code>,
-              or leave the callback URL empty. This desk does not need{" "}
-              <code className="font-mono">/v2/tx_sign_request</code>.
+              On the Co-Signer host: skip callback during{" "}
+              <code className="font-mono text-teal-300">add-user</code>, or leave the callback URL
+              empty.
             </p>
             <p className="text-xs text-muted-foreground">
               Operator: {data?.settings.operatorName}
             </p>
           </CardContent>
         </Card>
+      </div>
 
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Demo data</CardTitle>

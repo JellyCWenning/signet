@@ -95,8 +95,42 @@ export function BotView({
       <PageHeader
         eyebrow="API Co-Signer"
         title="Bots"
-        description="Pair a Fireblocks API user (bot) to a Co-Signer. Workspace TAP is the gate. Callback is off so the enclave signs without asking this app."
+        description="Pair a Signer API user to a Co-Signer. The bot still needs its RSA private key to call Fireblocks. TAP is the gate. Callback is off."
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>What a transfer bot needs</CardTitle>
+          <CardDescription>
+            Pairing on this page is local demo state. Production credentials stay on the bot host.
+            Full steps: docs/MANUAL.md.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>
+              <span className="font-medium text-foreground">Signer API user</span> — can create
+              transactions and holds an MPC share.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">API key UUID</span> — identifies the
+              user. Not enough by itself.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">RSA private key</span> — signs a JWT
+              on every POST /v1/transactions. Generate with OpenSSL; upload only the CSR.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">Co-Signer pairing, callback off</span>{" "}
+              — no Callback Handler URL.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">TAP ALLOW</span> — designated signer is
+              this API user. Edit in Console Policy Editor, then mobile approval.
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

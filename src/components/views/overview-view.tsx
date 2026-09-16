@@ -33,34 +33,39 @@ export function OverviewView({
       <PageHeader
         eyebrow="Workspace"
         title="Co-sign desk"
-        description="Pair an API bot to the Co-Signer. Fireblocks TAP is the only policy. Callback is off — the enclave signs what TAP already allowed."
+        description="Pair a Signer API bot to a Co-Signer. Fireblocks TAP is the only policy. Callback is off — the enclave signs what TAP already allowed."
         actions={
-          <Button nativeButton={false} render={<Link href="/queue" />}>
-            Open queue
-          </Button>
+          <div className="flex gap-2">
+            <Button nativeButton={false} variant="outline" render={<Link href="/flow" />}>
+              Full path
+            </Button>
+            <Button nativeButton={false} render={<Link href="/queue" />}>
+              Open queue
+            </Button>
+          </div>
         }
       />
 
       <section className="grid gap-3 sm:grid-cols-3">
         <Card size="sm">
           <CardHeader>
-            <CardDescription>1. Pair bot</CardDescription>
-            <CardTitle className="text-base">API user → Co-Signer</CardTitle>
+            <CardDescription>1. Identity</CardDescription>
+            <CardTitle className="text-base">API key + RSA JWT</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              treasury-bot is paired to nitro-prod-1. Callback is off.
+              The bot signs every POST /v1/transactions with fireblocks_secret.key. The API key UUID alone cannot create a transfer.
             </p>
           </CardContent>
         </Card>
         <Card size="sm">
           <CardHeader>
-            <CardDescription>2. Fireblocks TAP</CardDescription>
-            <CardTitle className="text-base">Workspace policy only</CardTitle>
+            <CardDescription>2. Pair + TAP</CardDescription>
+            <CardTitle className="text-base">Co-Signer and Console TAP</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Bot-created transfers already passed workspace TAP. This desk does not re-check amount or destination.
+              Pair the Signer user to a Co-Signer with no callback URL. ALLOW that user as designated signer in Policy Editor.
             </p>
           </CardContent>
         </Card>
