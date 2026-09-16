@@ -10,6 +10,7 @@ import {
   Settings,
   Shield,
   SlidersHorizontal,
+  Unplug,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -19,7 +20,8 @@ const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/console", label: "Console", icon: SlidersHorizontal },
   { href: "/policy", label: "Fireblocks TAP", icon: Gavel },
-  { href: "/flow", label: "Flow", icon: GitBranch },
+  { href: "/flow", label: "With Fireblocks", icon: GitBranch },
+  { href: "/direct", label: "No Fireblocks", icon: Unplug },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

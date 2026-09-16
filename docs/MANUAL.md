@@ -4,7 +4,7 @@ This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts.
 
 Fireblocks TAP is policy. Auto-sign still needs a Fireblocks API Co-Signer (MPC enclave). Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/console`. Fireblocks TAP how-to: `/policy`. Path: `/flow`.
+Live Console: `/console`. With Fireblocks: `/flow`. No Fireblocks: `/direct`. Fireblocks TAP how-to: `/policy`.
 
 ---
 
