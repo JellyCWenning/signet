@@ -50,9 +50,12 @@ Fireblocks API key / RSA are **not** in git and **not** pasted into the HTTP UI.
 /opt/tap-console/.env.local
 FIREBLOCKS_API_KEY=
 FIREBLOCKS_SECRET_KEY=
+LIGHTER_API_PRIVATE_KEY=
+LIGHTER_API_KEY_INDEX=4
+LIGHTER_ACCOUNT_INDEX=747083
 ```
 
-Never commit that file. The browser never sees the PEM.
+Never commit that file. The browser never sees the PEM. Deliver Lighter API keys through Cursor environment secrets, not chat.
 
 Tokyo TAP is HTTP only. HTTPS later via ACM / ALB or an nginx certificate.
 
