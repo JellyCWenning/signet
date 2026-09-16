@@ -7,6 +7,7 @@ import {
   requiredCredentialsSet,
   suggestedTransferUsd,
   type TransferTapDecision,
+  type VenueLiveState,
   type VenueRecord,
   type VenueSnapshot,
   type VenueThresholds,
@@ -14,6 +15,7 @@ import {
 
 interface VenueState {
   records: VenueRecord[];
+  live: Record<string, VenueLiveState>;
 }
 
 const globalForVenues = globalThis as typeof globalThis & {
@@ -24,13 +26,15 @@ function venueState(): VenueState {
   const current = globalForVenues.__venueTap;
   const ids = current?.records.map((item) => item.id).sort().join(",") ?? "";
   if (ids !== "hyperliquid_albert,lighter_albert") {
-    globalForVenues.__venueTap = { records: defaultVenueRecords() };
+    globalForVenues.__venueTap = { records: defaultVenueRecords(), live: {} };
+  } else if (current && !current.live) {
+    current.live = {};
   }
   return globalForVenues.__venueTap!;
 }
 
 export function resetVenues(): void {
-  globalForVenues.__venueTap = { records: defaultVenueRecords() };
+  globalForVenues.__venueTap = { records: defaultVenueRecords(), live: {} };
 }
 
 export function isVenueId(id: string): boolean {
@@ -43,9 +47,17 @@ function recordFor(id: string): VenueRecord {
   return found;
 }
 
-async function snapshotOf(record: VenueRecord): Promise<VenueSnapshot> {
+async function snapshotOf(
+  record: VenueRecord,
+  options: { refreshLive?: boolean } = {},
+): Promise<VenueSnapshot> {
   const catalog = exchangeCatalog(record.exchange);
-  const live = await getVenueClient(record.exchange).fetchAccount(record.credentials);
+  const refreshLive = options.refreshLive !== false;
+  let live = venueState().live[record.id];
+  if (refreshLive || !live) {
+    live = await getVenueClient(record.exchange).fetchAccount(record.credentials);
+    venueState().live[record.id] = live;
+  }
   const { armed, suggestedTransferUsd: suggested } = suggestedTransferUsd(
     record.enabled,
     record.thresholds,
@@ -79,8 +91,11 @@ export async function listVenueSnapshots(): Promise<VenueSnapshot[]> {
   return Promise.all(venueState().records.map((record) => snapshotOf(record)));
 }
 
-export async function getVenueSnapshot(id: string): Promise<VenueSnapshot> {
-  return snapshotOf(recordFor(id));
+export async function getVenueSnapshot(
+  id: string,
+  options: { refreshLive?: boolean } = {},
+): Promise<VenueSnapshot> {
+  return snapshotOf(recordFor(id), options);
 }
 
 export function updateVenueThresholds(

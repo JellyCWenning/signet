@@ -23,7 +23,7 @@ export async function PUT(
         body.marginTriggerPct == null ? undefined : Number(body.marginTriggerPct),
       maxTransferUsd: body.maxTransferUsd == null ? undefined : Number(body.maxTransferUsd),
     });
-    return NextResponse.json(await getVenueSnapshot(id));
+    return NextResponse.json(await getVenueSnapshot(id, { refreshLive: false }));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to update thresholds";
     return NextResponse.json({ error: message }, { status: 400 });

@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useJson } from "@/hooks/use-json";
 import type { FireblocksStatus, FireblocksVault, FireblocksWallet } from "@/lib/fireblocks-types";
-import { formatUsd } from "@/lib/format";
-import type { VenueSnapshot } from "@/lib/venues";
+import { formatTimestamp, formatUsd } from "@/lib/format";
+import type { TransferTapDecision, VenueSnapshot } from "@/lib/venues";
 import { cn } from "@/lib/utils";
 
 interface ConsolePayload {
@@ -23,7 +23,7 @@ interface ConsolePayload {
 export function ConsoleView({ initial }: { initial: ConsolePayload }) {
   const { data, error, loading, setData, reload } = useJson<ConsolePayload>(
     "/api/venues",
-    4000,
+    8000,
     initial,
   );
   const venues = data?.venues ?? [];
@@ -33,6 +33,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
     external: FireblocksWallet[];
     internal: FireblocksWallet[];
   }>({ external: [], internal: [] });
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!fbStatus?.configured) return;
@@ -66,6 +67,26 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
     };
   }, [fbStatus?.configured]);
 
+  async function refreshBalances() {
+    setRefreshing(true);
+    toast.message("Refreshing Hyperliquid and Lighter…");
+    try {
+      const next = await reload();
+      if (!next) throw new Error("Refresh failed");
+      toast.success(
+        `Balances updated · ${next.venues
+          .map((item) => `${item.name} ${item.live.marginRatioPct.toFixed(1)}%`)
+          .join(" · ")}`,
+      );
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const lastSynced = venues[0]?.lastSyncedAt;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -73,9 +94,14 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
         title="Trigger thresholds"
         description="Experiment with Albert Hyperliquid and Albert Lighter only. Set margin trigger and max single transfer against live balances."
         actions={
-          <Button type="button" variant="outline" onClick={() => void reload()}>
-            Refresh balances
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button type="button" variant="outline" disabled={refreshing} onClick={() => void refreshBalances()}>
+              {refreshing ? "Refreshing…" : "Refresh balances"}
+            </Button>
+            {lastSynced ? (
+              <p className="text-[11px] text-muted-foreground">Synced {formatTimestamp(lastSynced)}</p>
+            ) : null}
+          </div>
         }
       />
 
@@ -142,9 +168,10 @@ function VenueCard({
 }) {
   const [margin, setMargin] = useState(String(venue.thresholds.marginTriggerPct));
   const [maxTransfer, setMaxTransfer] = useState(String(venue.thresholds.maxTransferUsd));
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"save" | "evaluate" | "toggle" | "keys" | null>(null);
   const [showKeys, setShowKeys] = useState(false);
   const [draftKeys, setDraftKeys] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const dirty = useMemo(() => {
     return (
@@ -153,14 +180,31 @@ function VenueCard({
     );
   }, [margin, maxTransfer, venue.thresholds]);
 
+  function showResult(ok: boolean, text: string) {
+    setResult({ ok, text });
+    if (ok) toast.success(text);
+    else toast.error(text);
+  }
+
   async function saveThresholds(extra?: { enabled?: boolean }) {
-    setBusy(true);
+    const enabled = extra?.enabled ?? venue.enabled;
+    const toggling = extra?.enabled != null && extra.enabled !== venue.enabled;
+    setBusy(toggling ? "toggle" : "save");
+    if (toggling) {
+      const armed = enabled && venue.live.marginRatioPct <= Number(margin);
+      onUpdate({
+        ...venue,
+        enabled,
+        armed,
+        suggestedTransferUsd: armed ? venue.thresholds.maxTransferUsd : 0,
+      });
+    }
     try {
       const response = await fetch(`/api/venues/${venue.id}/thresholds`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          enabled: extra?.enabled ?? venue.enabled,
+          enabled,
           marginTriggerPct: Number(margin),
           maxTransferUsd: Number(maxTransfer),
         }),
@@ -170,16 +214,23 @@ function VenueCard({
       onUpdate(body as VenueSnapshot);
       setMargin(String(body.thresholds.marginTriggerPct));
       setMaxTransfer(String(body.thresholds.maxTransferUsd));
-      toast.success(`${venue.name} TAP updated`);
+      const switched = extra?.enabled != null && extra.enabled !== venue.enabled;
+      showResult(
+        true,
+        switched
+          ? `${venue.name} is ${enabled ? "On" : "Off"}`
+          : `${venue.name} TAP saved · trigger ${body.thresholds.marginTriggerPct}% · max ${formatUsd(body.thresholds.maxTransferUsd)}`,
+      );
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to save TAP");
+      if (toggling) onUpdate(venue);
+      showResult(false, caught instanceof Error ? caught.message : "Unable to save TAP");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function saveCredentials() {
-    setBusy(true);
+    setBusy("keys");
     try {
       const response = await fetch(`/api/venues/${venue.id}/credentials`, {
         method: "PUT",
@@ -190,16 +241,16 @@ function VenueCard({
       if (!response.ok) throw new Error(body.error ?? "Unable to store credentials");
       onUpdate(body.venue as VenueSnapshot);
       setDraftKeys({});
-      toast.success(`${venue.name} credentials stored in memory only`);
+      showResult(true, `${venue.name} credentials stored in memory only`);
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to store credentials");
+      showResult(false, caught instanceof Error ? caught.message : "Unable to store credentials");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   async function evaluate() {
-    setBusy(true);
+    setBusy("evaluate");
     try {
       const amountUsd = Number(maxTransfer);
       const response = await fetch("/api/venues/evaluate", {
@@ -207,27 +258,30 @@ function VenueCard({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ venueId: venue.id, amountUsd }),
       });
-      const body = await response.json();
+      const body = (await response.json()) as TransferTapDecision & { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Evaluate failed");
       if (body.allowed) {
-        toast.success(`${venue.name} would send ${formatUsd(body.cappedAmountUsd, true)}`, {
-          description: body.reasons?.length ? body.reasons.join(" · ") : "Within TAP",
-        });
+        showResult(
+          true,
+          `${venue.name} dry-run ALLOW · would send ${formatUsd(body.cappedAmountUsd, true)}`,
+        );
       } else {
-        toast.error(`${venue.name} would not send`, {
-          description: (body.reasons as string[] | undefined)?.join(" · ") ?? "Blocked",
-        });
+        showResult(
+          false,
+          `${venue.name} dry-run BLOCK · ${(body.reasons ?? []).join(" · ") || "Blocked"}`,
+        );
       }
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Evaluate failed");
+      showResult(false, caught instanceof Error ? caught.message : "Evaluate failed");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   const ratio = venue.live.marginRatioPct;
   const trigger = venue.thresholds.marginTriggerPct;
   const bar = Math.min(100, Math.max(0, ratio));
+  const locked = busy != null;
 
   return (
     <Card className={cn(venue.armed && "border-amber-400/40")}>
@@ -241,20 +295,28 @@ function VenueCard({
             </CardDescription>
             <CardTitle>{venue.name}</CardTitle>
           </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            {venue.enabled ? "On" : "Off"}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={venue.enabled ? "default" : "outline"}
+              disabled={locked}
+              onClick={() => void saveThresholds({ enabled: !venue.enabled })}
+            >
+              {busy === "toggle" ? "…" : venue.enabled ? "On" : "Off"}
+            </Button>
             <Switch
               checked={venue.enabled}
-              disabled={busy}
+              disabled={locked}
               onCheckedChange={(checked) => void saveThresholds({ enabled: checked })}
             />
-          </label>
+          </div>
         </div>
-          <p className="text-xs text-muted-foreground">
-            {venue.id}
-            {venue.kind === "perp" ? " · perp" : " · cex"}
-            {venue.queriedAs ? ` · ${venue.queriedAs}` : ""}
-          </p>
+        <p className="text-xs text-muted-foreground">
+          {venue.id}
+          {venue.kind === "perp" ? " · perp" : " · cex"}
+          {venue.queriedAs ? ` · ${venue.queriedAs}` : ""}
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
@@ -310,12 +372,25 @@ function VenueCard({
           {venue.live.error ? ` · ${venue.live.error}` : ""}
         </div>
 
+        {result ? (
+          <div
+            className={cn(
+              "rounded-lg border px-3 py-2 text-sm",
+              result.ok
+                ? "border-teal-400/40 bg-teal-400/10 text-teal-50"
+                : "border-destructive/40 bg-destructive/10 text-destructive",
+            )}
+          >
+            {result.text}
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap gap-2">
-          <Button type="button" disabled={busy || !dirty} onClick={() => void saveThresholds()}>
-            {busy ? "Saving…" : "Save TAP"}
+          <Button type="button" disabled={locked} onClick={() => void saveThresholds()}>
+            {busy === "save" ? "Saving…" : dirty ? "Save TAP" : "Save TAP"}
           </Button>
-          <Button type="button" variant="outline" disabled={busy} onClick={() => void evaluate()}>
-            Dry-run transfer
+          <Button type="button" variant="outline" disabled={locked} onClick={() => void evaluate()}>
+            {busy === "evaluate" ? "Checking…" : "Dry-run transfer"}
           </Button>
         </div>
 
@@ -328,7 +403,7 @@ function VenueCard({
                 venueId={venue.id}
                 defaultAmount={String(venue.suggestedTransferUsd || venue.thresholds.maxTransferUsd)}
                 defaultNote={`TAP Console · ${venue.name}`}
-                disabled={busy}
+                disabled={locked}
                 vaults={vaults}
                 wallets={wallets}
               />
@@ -371,6 +446,9 @@ function VenueCard({
                     autoComplete="off"
                     placeholder={field.hint}
                     value={draftKeys[field.key] ?? ""}
+                    onValueChange={(value) =>
+                      setDraftKeys((current) => ({ ...current, [field.key]: value }))
+                    }
                     onChange={(event) =>
                       setDraftKeys((current) => ({ ...current, [field.key]: event.target.value }))
                     }
@@ -380,10 +458,10 @@ function VenueCard({
               <Button
                 type="button"
                 variant="outline"
-                disabled={busy}
+                disabled={locked}
                 onClick={() => void saveCredentials()}
               >
-                Save credentials
+                {busy === "keys" ? "Saving…" : "Save credentials"}
               </Button>
             </div>
           ) : null}
@@ -414,6 +492,7 @@ function Field({
         <Input
           inputMode="decimal"
           value={value}
+          onValueChange={onChange}
           onChange={(event) => onChange(event.target.value)}
         />
         {suffix ? <span className="text-xs text-muted-foreground">{suffix}</span> : null}
