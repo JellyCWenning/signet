@@ -125,8 +125,9 @@ ALLOW + designated signer = the paired API user. Co-Signer Online. Callback empt
 
 | Operation | Used by |
 | --- | --- |
-| `TYPED_MESSAGE` | HL `withdraw3`; Lighter `L1Sig` (`ETH_MESSAGE`) |
-| `TRANSFER` | vault → HL Bridge2 |
+| `TYPED_MESSAGE` | Hyperliquid `withdraw3` |
+| `ETH_MESSAGE` | Lighter Relay `L1Sig` (EIP-191) |
+| `TRANSFER` | vault → Hyperliquid Bridge2 |
 | `CONTRACT_CALL` | Lighter `depositErc20` (and USDC approve when needed) |
 | `APPROVE` | fallback if CONTRACT_CALL approve is TAP-blocked |
 
