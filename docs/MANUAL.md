@@ -360,4 +360,4 @@ See [OPS.md](OPS.md) for instance IDs, PCR8, IAM, and remaining Owner steps.
 
 This Tokyo desk is venue TAP + Fireblocks JWT only. The Nitro Co-Signer in `us-east-1` holds the customer MPC share. Do not attach the Co-Signer IAM role to Tokyo. Do not change the Co-Signer S3 bucket policy (Console Access Denied is expected).
 
-Co-signers tab is Online. Auto-sign for TRANSFER and TYPED_MESSAGE is proven (callback off). Keep TAP ALLOW + designated signer when adding another vault.
+Co-signers tab is Online. Auto-sign is proven for TRANSFER, TYPED_MESSAGE, ETH_MESSAGE, and CONTRACT_CALL (callback off). Keep TAP ALLOW + designated signer when adding another vault.
