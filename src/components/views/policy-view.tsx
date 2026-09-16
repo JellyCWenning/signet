@@ -53,7 +53,11 @@ interface TxPayload {
 }
 
 async function readJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, { cache: "no-store", ...init });
+  const response = await fetch(url, {
+    cache: "no-store",
+    ...init,
+    signal: init?.signal ?? AbortSignal.timeout(25_000),
+  });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error((body as { error?: string }).error ?? response.statusText);
@@ -75,6 +79,7 @@ export function PolicyView() {
   const [wallets, setWallets] = useState<WalletPayload>({ external: [], internal: [] });
   const [transactions, setTransactions] = useState<FireblocksTx[]>([]);
   const [busy, setBusy] = useState(false);
+  const [actionNote, setActionNote] = useState<{ ok: boolean; text: string } | null>(null);
 
   const applyPolicy = useCallback((payload: PolicyPayload) => {
     setPolicy(payload);
@@ -115,13 +120,25 @@ export function PolicyView() {
     };
   }, [applyPolicy, configured]);
 
+  function showNote(ok: boolean, text: string) {
+    setActionNote({ ok, text });
+    if (ok) toast.success(text);
+    else toast.error(text);
+  }
+
+  function requireConnected() {
+    if (!configured) {
+      throw new Error("Paste the Fireblocks API key and RSA private key first");
+    }
+  }
+
   async function loadWorkspace() {
-    if (!configured) return;
     setBusy(true);
     try {
+      requireConnected();
       const [nextPolicy, vaultPayload, walletPayload, txPayload] = await Promise.all([
         readJson<PolicyPayload>("/api/fireblocks/policy").catch((error: Error) => {
-          toast.error(error.message);
+          showNote(false, error.message);
           return null;
         }),
         readJson<VaultPayload>("/api/fireblocks/vaults"),
@@ -135,8 +152,9 @@ export function PolicyView() {
       setVaults(vaultPayload.vaults ?? []);
       setWallets(walletPayload);
       setTransactions(txPayload.transactions ?? []);
+      showNote(true, "Workspace refreshed");
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to load Fireblocks");
+      showNote(false, caught instanceof Error ? caught.message : "Unable to load Fireblocks");
     } finally {
       setBusy(false);
     }
@@ -145,10 +163,11 @@ export function PolicyView() {
   async function loadActive() {
     setBusy(true);
     try {
+      requireConnected();
       applyPolicy(await readJson<PolicyPayload>("/api/fireblocks/policy"));
-      toast.success("Loaded active TAP");
+      showNote(true, "Loaded active TAP");
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to load TAP");
+      showNote(false, caught instanceof Error ? caught.message : "Unable to load TAP");
     } finally {
       setBusy(false);
     }
@@ -157,10 +176,11 @@ export function PolicyView() {
   async function loadDraft() {
     setBusy(true);
     try {
+      requireConnected();
       applyPolicy(await readJson<PolicyPayload>("/api/fireblocks/policy/draft"));
-      toast.success("Loaded TAP draft");
+      showNote(true, "Loaded TAP draft");
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to load TAP draft");
+      showNote(false, caught instanceof Error ? caught.message : "Unable to load TAP draft");
     } finally {
       setBusy(false);
     }
@@ -169,6 +189,7 @@ export function PolicyView() {
   async function saveDraft() {
     setBusy(true);
     try {
+      requireConnected();
       const parsed = JSON.parse(draftJson) as unknown;
       const rules = Array.isArray(parsed)
         ? parsed
@@ -180,34 +201,33 @@ export function PolicyView() {
         body: JSON.stringify({ rules }),
       });
       applyPolicy(payload);
-      toast.success("TAP draft saved", {
-        description: payload.draftId ? `draft ${payload.draftId}` : "Owner/Admin still must approve publish on mobile",
-      });
+      showNote(
+        true,
+        payload.draftId
+          ? `TAP draft saved · ${payload.draftId}`
+          : "TAP draft saved · Owner/Admin still must approve publish on mobile",
+      );
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to save TAP draft");
+      showNote(false, caught instanceof Error ? caught.message : "Unable to save TAP draft");
     } finally {
       setBusy(false);
     }
   }
 
   async function publishDraft() {
-    if (!draftId.trim()) {
-      toast.error("Load or save a draft first so there is a draftId");
-      return;
-    }
     setBusy(true);
     try {
+      requireConnected();
+      if (!draftId.trim()) throw new Error("Load or save a draft first so there is a draftId");
       const payload = await readJson<PolicyPayload>("/api/fireblocks/policy/draft", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ draftId: draftId.trim() }),
       });
       applyPolicy({ ...payload, rules: payload.rules ?? policy?.rules ?? [] });
-      toast.success("Publish requested", {
-        description: "Owner / Admin must confirm on the Fireblocks mobile app",
-      });
+      showNote(true, "Publish requested · Owner / Admin must confirm on the Fireblocks mobile app");
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to publish TAP");
+      showNote(false, caught instanceof Error ? caught.message : "Unable to publish TAP");
     } finally {
       setBusy(false);
     }
@@ -216,11 +236,12 @@ export function PolicyView() {
   async function refreshVaults() {
     setBusy(true);
     try {
+      requireConnected();
       const payload = await readJson<VaultPayload>("/api/fireblocks/vaults");
       setVaults(payload.vaults ?? []);
-      toast.success(`${payload.vaults?.length ?? 0} vaults`);
+      showNote(true, `${payload.vaults?.length ?? 0} vaults`);
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to list vaults");
+      showNote(false, caught instanceof Error ? caught.message : "Unable to list vaults");
     } finally {
       setBusy(false);
     }
@@ -229,10 +250,12 @@ export function PolicyView() {
   async function refreshTxs() {
     setBusy(true);
     try {
+      requireConnected();
       const payload = await readJson<TxPayload>("/api/fireblocks/transactions");
       setTransactions(payload.transactions ?? []);
+      showNote(true, `${payload.transactions?.length ?? 0} transactions`);
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Unable to list transactions");
+      showNote(false, caught instanceof Error ? caught.message : "Unable to list transactions");
     } finally {
       setBusy(false);
     }
@@ -258,7 +281,7 @@ export function PolicyView() {
         title="Fireblocks TAP"
         description="Live Fireblocks API: connect with API key + RSA PEM, load TAP, vaults, and submit transfers. Signer bots cannot read TAP — use Owner / Admin / Non-Signing Admin for policy."
         actions={
-          <Button type="button" variant="outline" disabled={!configured || busy} onClick={() => void loadWorkspace()}>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => void loadWorkspace()}>
             {busy ? "Loading…" : "Refresh workspace"}
           </Button>
         }
@@ -293,29 +316,30 @@ export function PolicyView() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                <Button type="button" disabled={!configured || busy} onClick={() => void loadActive()}>
+                <Button type="button" disabled={busy} onClick={() => void loadActive()}>
                   Load active TAP
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!configured || busy}
-                  onClick={() => void loadDraft()}
-                >
+                <Button type="button" variant="outline" disabled={busy} onClick={() => void loadDraft()}>
                   Load draft
                 </Button>
-                <Button type="button" variant="outline" disabled={!configured || busy} onClick={() => void saveDraft()}>
+                <Button type="button" variant="outline" disabled={busy} onClick={() => void saveDraft()}>
                   Save draft
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={!configured || busy}
-                  onClick={() => void publishDraft()}
-                >
+                <Button type="button" variant="outline" disabled={busy} onClick={() => void publishDraft()}>
                   Publish draft
                 </Button>
               </div>
+              {actionNote ? (
+                <div
+                  className={
+                    actionNote.ok
+                      ? "rounded-lg border border-teal-400/40 bg-teal-400/10 px-3 py-2 text-sm text-teal-50"
+                      : "rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  }
+                >
+                  {actionNote.text}
+                </div>
+              ) : null}
               <label className="block space-y-1">
                 <span className="text-xs text-muted-foreground">Draft ID (from save/load draft)</span>
                 <input
@@ -384,7 +408,7 @@ export function PolicyView() {
                 <CardTitle>Vault accounts</CardTitle>
                 <CardDescription>GET /v1/vault/accounts_paged — first 50.</CardDescription>
               </div>
-              <Button type="button" variant="outline" disabled={!configured || busy} onClick={() => void refreshVaults()}>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => void refreshVaults()}>
                 Refresh vaults
               </Button>
             </CardHeader>
@@ -448,7 +472,7 @@ export function PolicyView() {
                 <CardTitle>Recent transactions</CardTitle>
                 <CardDescription>GET /v1/transactions — live workspace, not demo rows.</CardDescription>
               </div>
-              <Button type="button" variant="outline" disabled={!configured || busy} onClick={() => void refreshTxs()}>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => void refreshTxs()}>
                 Refresh
               </Button>
             </CardHeader>

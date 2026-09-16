@@ -112,6 +112,15 @@ export async function fireblocksGetFirst<T>(paths: string[]): Promise<{ path: st
       return { path, data };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      const message = lastError.message.toLowerCase();
+      if (
+        message.includes("unauthorized") ||
+        message.includes("paste the fireblocks") ||
+        message.includes("could not sign") ||
+        message.includes("invalid jwt")
+      ) {
+        throw lastError;
+      }
     }
   }
   throw lastError ?? new Error("All Fireblocks paths failed");
