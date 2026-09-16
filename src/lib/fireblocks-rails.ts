@@ -22,9 +22,18 @@ export {
   type ResolvedVenueRoute,
   type VenueKindOnRail,
 } from "@/lib/fireblocks-desk";
-export { routeVenueFunds, type RouteFundsInput, type RouteFundsResult, type RouteStep } from "@/lib/fireblocks-route";
+export {
+  ensureVaultUsdc,
+  routeVenueFunds,
+  signAndSubmitHyperliquidWithdraw,
+  type RouteFundsInput,
+  type RouteFundsResult,
+  type RouteStep,
+} from "@/lib/fireblocks-route";
 export {
   assertAutoSigned,
+  createFireblocksApprove,
+  createFireblocksContractCall,
   createFireblocksTransfer,
   createFireblocksTypedMessage,
   eip712SignatureFromTx,

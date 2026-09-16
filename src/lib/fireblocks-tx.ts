@@ -62,6 +62,67 @@ export async function createFireblocksTransfer(
   return { transaction: transactions[0] ?? { id: "", status: "UNKNOWN" }, raw: payload };
 }
 
+export async function createFireblocksApprove(input: {
+  vaultId: string;
+  assetId: string;
+  destType: string;
+  destId: string;
+  amount: string;
+  contractCallData?: string;
+  note?: string;
+}): Promise<{ transaction: FireblocksTx; raw: unknown }> {
+  const payload = await fireblocksPost(
+    "/v1/transactions",
+    {
+      operation: "APPROVE",
+      assetId: input.assetId,
+      amount: String(input.amount),
+      source: { type: "VAULT_ACCOUNT", id: String(input.vaultId) },
+      destination: { type: input.destType, id: String(input.destId) },
+      note: input.note?.trim() || "TAP approve",
+      extraParameters: input.contractCallData
+        ? { contractCallData: input.contractCallData }
+        : undefined,
+    },
+    crypto.randomUUID(),
+  );
+  const transactions = extractTransactions(payload);
+  return { transaction: transactions[0] ?? { id: "", status: "UNKNOWN" }, raw: payload };
+}
+
+export async function createFireblocksContractCall(input: {
+  vaultId: string;
+  assetId: string;
+  destType: string;
+  destId?: string;
+  destAddress?: string;
+  contractCallData: string;
+  amount?: string;
+  note?: string;
+}): Promise<{ transaction: FireblocksTx; raw: unknown }> {
+  const destination = input.destId
+    ? { type: input.destType, id: String(input.destId) }
+    : {
+        type: "ONE_TIME_ADDRESS",
+        oneTimeAddress: { address: input.destAddress },
+      };
+  const payload = await fireblocksPost(
+    "/v1/transactions",
+    {
+      operation: "CONTRACT_CALL",
+      assetId: input.assetId,
+      amount: input.amount ?? "0",
+      source: { type: "VAULT_ACCOUNT", id: String(input.vaultId) },
+      destination,
+      note: input.note?.trim() || "TAP contract call",
+      extraParameters: { contractCallData: input.contractCallData },
+    },
+    crypto.randomUUID(),
+  );
+  const transactions = extractTransactions(payload);
+  return { transaction: transactions[0] ?? { id: "", status: "UNKNOWN" }, raw: payload };
+}
+
 export async function createFireblocksTypedMessage(input: {
   vaultId: string;
   typedData: Eip712TypedData;

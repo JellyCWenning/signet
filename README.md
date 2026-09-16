@@ -17,7 +17,7 @@ Hyperliquid ↔ Lighter on one Fireblocks L1 is encapsulated. Later accounts cop
 | --- | --- |
 | Catalog | `src/lib/fireblocks-desk.ts` → `DESK_RAILS` |
 | One call | `routeVenueFunds` in `src/lib/fireblocks-rails.ts` |
-| HTTP | `GET /api/fireblocks/desk` · `POST /api/fireblocks/route` |
+| HTTP | `GET /api/fireblocks/desk` · `POST /api/fireblocks/vault/ensure` · `POST /api/fireblocks/route` |
 | Checks | `npm run check:rails` |
 
 ```ts
@@ -30,7 +30,7 @@ await routeVenueFunds({
 });
 ```
 
-Flow: if the vault is short, Co-Signer signs Hyperliquid `withdraw3` (TYPED_MESSAGE, plus **$1** HL fee) → wait for `USDC_ARB` → dest-specific credit. **Lighter dest `0x4cd00e…` is Relay Depository** — a Fireblocks ERC20 TRANSFER does **not** credit the Lighter account (1 USDC tx `0x92de68a8…` was not credited). Deposit needs Relay `quote/v2` + `CONTRACT_CALL depositErc20`. Do **not** use `POST /api/fireblocks/send` for this (venue remaining-margin TAP blocks healthy accounts).
+Flow: `POST /api/fireblocks/vault/ensure` can pull a vault buffer from Hyperliquid first. Then `routeVenueFunds` / `POST /api/fireblocks/route` does Relay `quote/v2` + Fireblocks APPROVE + **CONTRACT_CALL** `depositErc20`. A naked ERC20 TRANSFER to `0x4cd00e…` does **not** credit Lighter (tx `0x92de68a8…`). Do **not** use `POST /api/fireblocks/send` (venue remaining-margin TAP blocks healthy accounts).
 
 Add another Fireblocks account:
 

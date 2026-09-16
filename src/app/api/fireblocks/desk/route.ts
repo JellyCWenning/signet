@@ -7,7 +7,7 @@ export async function GET() {
   return NextResponse.json({
     rails: listDeskRails(),
     reuse: {
-      call: "POST /api/fireblocks/route",
+      call: "POST /api/fireblocks/vault/ensure then POST /api/fireblocks/route",
       body: {
         from: "hyperliquid_fireblocks",
         to: "lighter_fireblocks",
@@ -20,7 +20,7 @@ export async function GET() {
     notes: {
       hyperliquidWithdraw: "TYPED_MESSAGE withdraw3 (plus $1 HL fee), then wait for USDC_ARB in the vault",
       lighterDeposit:
-        "Relay Depository 0x4cd00e… — ERC20 TRANSFER does not credit. Need quote/v2 + CONTRACT_CALL depositErc20. Incident 0x92de68a8… not credited.",
+        "Relay quote/v2 + Fireblocks APPROVE + CONTRACT_CALL depositErc20. ERC20 TRANSFER does not credit.",
       hyperliquidDeposit: "TRANSFER / CONTRACT_CALL USDC_ARB to the Hyperliquid allowlisted contract",
       skipWithdraw: "If the vault already holds enough USDC_ARB, routing only TRANSFERs",
       notSendEndpoint:

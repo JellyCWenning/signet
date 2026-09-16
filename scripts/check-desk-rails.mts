@@ -23,6 +23,7 @@ test("eason_albert rail is the proven HL ↔ Lighter vault", () => {
   assert.equal(rail.l1Address, "0x6759b70EA668e076180c06085d51449FB0d7EE90");
   assert.equal(rail.hyperliquidVenueId, "hyperliquid_fireblocks");
   assert.equal(rail.lighterVenueId, "lighter_fireblocks");
+  assert.equal(rail.lighterAccountIndex, "747083");
   assert.equal(destForKind(rail, "lighter").id, "ec38a57b-3656-4b1d-b122-a1ac3f1422ac");
   assert.equal(destForKind(rail, "hyperliquid").id, "0688ebcf-3b2a-42cf-ba92-7be2ad93b986");
 });

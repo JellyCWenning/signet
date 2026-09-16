@@ -58,6 +58,7 @@ JWT comes from host env only. This HTTP site is not a place to paste RSA.
 | `POST` | `/api/fireblocks/transactions` | `POST /v1/transactions` TRANSFER |
 | `POST` | `/api/fireblocks/send` | Venue TAP gate, then create transfer. **Not** for HL ↔ Lighter routing (healthy remaining margin blocks it). |
 | `GET` | `/api/fireblocks/desk` | Desk rails catalog + how to add another Fireblocks account |
+| `POST` | `/api/fireblocks/vault/ensure` | Withdraw from Hyperliquid until vault holds `minAmount` |
 | `POST` | `/api/fireblocks/route` | Venue-to-venue USDC on one vault (`from`, `to`, `amount`) |
 | `POST` | `/api/fireblocks/typed-message` | `POST /v1/transactions` TYPED_MESSAGE (EIP-712) |
 | `POST` | `/api/fireblocks/hyperliquid/withdraw` | Sign `withdraw3` via Co-Signer, POST Hyperliquid `/exchange` |
@@ -257,9 +258,11 @@ flowchart TD
 | Lighter credit | Relay `POST /quote/v2` (`destinationChainId` **3586256**, `recipient` = Lighter `account_index`) then Fireblocks **CONTRACT_CALL** `depositErc20` | `0x4cd00e…` is Relay Depository. Naked ERC20 TRANSFER is not indexed. TAP must ALLOW CONTRACT_CALL (+ USDC APPROVE). |
 | Hyperliquid dest | Allowlisted contract `0688ebcf-…` | Still a contract; confirm credit mode before a reverse test. |
 
-`routeVenueFunds` now **refuses** ERC20 TRANSFER to a `credit: "relay_deposit_erc20"` dest so later developers cannot repeat the uncredited 1 USDC.
+`routeVenueFunds` runs Relay `quote/v2` then Fireblocks **APPROVE** + **CONTRACT_CALL** `depositErc20` for Lighter. It still refuses a naked ERC20 TRANSFER to that dest.
 
-Lighter → Hyperliquid: Lighter L2 withdraw is **not** wired yet (Relay quote returns a Lighter `transfer` action that needs the L1 key / Lighter API signer, plus ~$1 Lighter fee on a $1 size). Do not debit the existing ~$12,518 Lighter book until a dedicated small reverse test is funded via `depositErc20`.
+Vault buffer: `POST /api/fireblocks/vault/ensure` `{ "amount": "20", "railId": "eason_albert" }` withdraws from Hyperliquid until the vault holds that much (HL still takes $1 extra). Then route 1 USDC to Lighter from the vault.
+
+Lighter → vault: Relay quote returns a Lighter L2 `transfer` (API-key signer). Quote is wired; sendTx still needs a Lighter API key registered with an L1 EIP-191.
 
 ### Library (import this)
 

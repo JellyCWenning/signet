@@ -32,6 +32,10 @@ export interface DeskRail {
   arbUsdcAssetId: string;
   hyperliquidVenueId?: string;
   lighterVenueId?: string;
+  /** Lighter account_index for this L1 (Relay quote `recipient`). */
+  lighterAccountIndex?: string;
+  /** Fireblocks native gas asset on the deposit chain (Arbitrum). */
+  gasAssetId?: string;
   destinations: {
     lighter?: AllowlistedDest;
     hyperliquid?: AllowlistedDest;
@@ -50,6 +54,8 @@ export const DESK_RAILS: DeskRail[] = [
     arbUsdcAssetId: "USDC_ARB_3SBJ",
     hyperliquidVenueId: "hyperliquid_fireblocks",
     lighterVenueId: "lighter_fireblocks",
+    lighterAccountIndex: "747083",
+    gasAssetId: "ETH-AETH",
     destinations: {
       lighter: {
         type: "EXTERNAL_WALLET",
