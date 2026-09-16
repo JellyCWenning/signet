@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/page-header";
 import { useJson } from "@/hooks/use-json";
 import { formatUsd } from "@/lib/format";
+import type { FireblocksStatus } from "@/lib/fireblocks-types";
 import type { VenueSnapshot } from "@/lib/venues";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ interface ConsolePayload {
 
 export function OverviewView({ initialVenues }: { initialVenues: ConsolePayload }) {
   const { data, error, loading } = useJson<ConsolePayload>("/api/venues", 4000, initialVenues);
+  const { data: fbStatus } = useJson<FireblocksStatus>("/api/fireblocks/credentials", 8000);
   const venues = data?.venues ?? [];
 
   return (
@@ -46,8 +48,12 @@ export function OverviewView({ initialVenues }: { initialVenues: ConsolePayload 
             <CardTitle className="text-base">Policy — who may send what</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            ALLOW / BLOCK / 2-TIER live in the Fireblocks Console Policy Editor. This desk does not
-            store those rules and does not invent a matching history.
+            {fbStatus?.configured
+              ? `API connected (…${fbStatus.apiKeyLast4}). Load and edit TAP on the Fireblocks TAP page.`
+              : "Paste the API key and RSA PEM on Fireblocks TAP to load live ALLOW / BLOCK / 2-TIER rules."}{" "}
+            <Link href="/policy" className="text-teal-300 underline-offset-2 hover:underline">
+              Open Fireblocks TAP
+            </Link>
           </CardContent>
         </Card>
         <Card>

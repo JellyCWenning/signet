@@ -2,10 +2,12 @@
 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { FireblocksCredentialsCard } from "@/components/fireblocks-credentials-card";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useJson } from "@/hooks/use-json";
+import type { FireblocksStatus } from "@/lib/fireblocks-types";
 import type { DashboardStats, WorkspaceSettings } from "@/lib/types";
 
 export function SettingsView({
@@ -18,6 +20,10 @@ export function SettingsView({
 }) {
   const router = useRouter();
   const { data, setData } = useJson("/api/workspace", 4000, initial);
+  const { data: fbStatus, setData: setFbStatus } = useJson<FireblocksStatus>(
+    "/api/fireblocks/credentials",
+    8000,
+  );
 
   async function reset() {
     const response = await fetch("/api/workspace", {
@@ -40,8 +46,10 @@ export function SettingsView({
       <PageHeader
         eyebrow="Workspace"
         title="Settings"
-        description="No Co-Signer fleet is hosted here. Pair the Fireblocks Signer bot in Fireblocks. Callback off."
+        description="Connect Fireblocks here or on the Fireblocks TAP page. This app does not host a Co-Signer."
       />
+
+      <FireblocksCredentialsCard status={fbStatus} onChange={setFbStatus} />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>

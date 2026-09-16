@@ -1,10 +1,10 @@
 # Fireblocks Co-Sign — Operator Manual
 
-This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts. It does not host a Co-Signer, does not store Fireblocks TAP, and does not invent signing history.
+This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts and talks to the **Fireblocks API** when you paste an API key + RSA PEM.
 
-Fireblocks TAP is policy. Auto-sign still needs a Fireblocks API Co-Signer (MPC enclave). Pair that in Fireblocks. Callback stays off.
+It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/console`. With Fireblocks: `/flow`. No Fireblocks: `/direct`. Fireblocks TAP how-to: `/policy`.
+Live Console: `/console`. With Fireblocks: `/flow`. No Fireblocks: `/direct`. Fireblocks TAP (live API): `/policy`.
 
 ---
 
@@ -21,13 +21,44 @@ When remaining margin is at or below the trigger, the bot may send a Fireblocks 
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/venues` | List venues, live (or mock) balances, thresholds |
+| `GET` | `/api/venues` | List venues, live balances, thresholds |
 | `GET` | `/api/venues/:id` | One venue |
 | `PUT` | `/api/venues/:id/thresholds` | `{ enabled, marginTriggerPct, maxTransferUsd }` |
 | `PUT` | `/api/venues/:id/credentials` | Store API fields in process memory. Never written to disk. |
 | `POST` | `/api/venues/evaluate` | `{ venueId, amountUsd }` → allow / cap / reasons |
 
-Venue HTTP clients are stubbed. Paste credentials later; the adapter interface is already in `src/lib/venue-clients.ts`.
+---
+
+## Fireblocks API (this desk)
+
+Paste credentials on `/policy` or `/settings`, or set env vars. The server signs an RS256 JWT on every call (`X-API-Key` + `Authorization: Bearer`). Secrets stay in process memory.
+
+| Env | Purpose |
+| --- | --- |
+| `FIREBLOCKS_API_KEY` | API user UUID |
+| `FIREBLOCKS_SECRET_KEY` | RSA private key PEM (`\n` allowed) |
+| `FIREBLOCKS_API_BASE` | `https://api.fireblocks.io` (US), `https://api.eu.fireblocks.io`, or sandbox |
+
+| Method | Path | Fireblocks call |
+| --- | --- | --- |
+| `GET` | `/api/fireblocks/credentials` | Status only (last 4 of key). No secrets. |
+| `PUT` | `/api/fireblocks/credentials` | Store `{ apiKey, privateKey, baseUrl }` or `{ clear: true }` |
+| `POST` | `/api/fireblocks/credentials` | `{ action: "ping" }` → vault list |
+| `GET` | `/api/fireblocks/policy` | `GET /v1/policy/active_policy?policyType=TRANSFER` |
+| `GET` | `/api/fireblocks/policy/draft` | `GET /v1/policy/draft?policyType=TRANSFER` |
+| `PUT` | `/api/fireblocks/policy/draft` | `PUT /v1/policy/draft` `{ policyTypes, rules }` |
+| `POST` | `/api/fireblocks/policy/draft` | `POST /v1/policy/draft` `{ draftId }` publish |
+| `GET` | `/api/fireblocks/vaults` | `GET /v1/vault/accounts_paged` |
+| `GET` | `/api/fireblocks/vaults/:id` | `GET /v1/vault/accounts/:id` |
+| `GET` | `/api/fireblocks/wallets` | External + internal wallets |
+| `GET` | `/api/fireblocks/transactions` | `GET /v1/transactions` |
+| `GET` | `/api/fireblocks/transactions/:id` | `GET /v1/transactions/:id` |
+| `POST` | `/api/fireblocks/transactions` | `POST /v1/transactions` TRANSFER |
+| `POST` | `/api/fireblocks/send` | Venue TAP gate, then create transfer |
+
+A Signer bot can create transfers. Reading / editing TAP needs Owner / Admin / Non-Signing Admin. Publish still needs mobile approval.
+
+Do not put `fireblocks_secret.key` or production API keys in this repository.
 
 ---
 
@@ -42,7 +73,7 @@ Venue HTTP clients are stubbed. Paste credentials later; the adapter interface i
 | TAP ALLOW | Source, destination, asset, amount; **designated signer** = this API user |
 | No callback URL | If none is set, TAP-allowed requests are signed automatically |
 
-You do **not** need this desk in the live signing path. It is an operator view of pairing, TAP instructions, and a demo queue.
+This desk can submit `POST /v1/transactions` from `/policy` or Console **Send via Fireblocks**. A production bot can still call Fireblocks directly with the same JWT.
 
 ---
 
@@ -168,11 +199,10 @@ Do this in the Console. You do not need to give anyone an API key.
 | BLOCK | Transfer fails; never reaches Co-Signer |
 | 2-TIER | Human in Console / mobile — not this desk |
 
-Optional API (Owner / Admin / Non-Signing Admin only; still needs RSA JWT):
+Optional API from this desk (Owner / Admin / Non-Signing Admin; still needs RSA JWT):
 
-- `GET /v1/policy/active_policy?policyType=TRANSFER`
-- `PUT /v1/policy/draft`
-- `POST /v1/policy/draft`
+- This app: `/policy` → Load active TAP / Save draft / Publish draft
+- Or Console: **Settings → Policy Editor**, then mobile approval
 
 A Signer bot cannot read or edit TAP.
 
@@ -192,7 +222,9 @@ await fireblocks.createTransaction({
 
 Minimum body: `assetId`, `source`, `destination`, `amount`.
 
-Then Fireblocks TAP runs. If ALLOW, the paired Co-Signer signs in the enclave. This app is not in that path.
+Then Fireblocks TAP runs. If ALLOW, the paired Co-Signer signs in the enclave.
+
+This desk can also submit that same `POST /v1/transactions` from **Fireblocks TAP → Transfer** or Console **Send via Fireblocks** (venue TAP is checked first).
 
 ---
 
@@ -207,16 +239,14 @@ Open [http://localhost:43147](http://localhost:43147).
 
 | Page | Use |
 | --- | --- |
-| `/` | Pairing summary, recent TAP-allowed signatures |
-| `/flow` | Full path from JWT to broadcast |
-| `/policy` | How to edit Fireblocks TAP |
-| `/bot` | Pair demo API users to Co-Signers |
-| `/queue` | Demo TAP-allowed history |
-| `/settings` | Callback-off notes, reset demo data |
+| `/` | Live Albert balances, Fireblocks connection status |
+| `/console` | Venue TAP + Send via Fireblocks |
+| `/policy` | Fireblocks credentials, TAP, vaults, transfers, txs |
+| `/flow` | Path A — with Fireblocks |
+| `/direct` | Path B — no Fireblocks |
+| `/settings` | Same Fireblocks credentials form, reset Albert TAP |
 
-Queue state is in-memory. Reset from Settings. A process restart reseeds the demo.
-
-`POST /v2/tx_sign_request` exists only so **Simulate TAP-allowed tx** can inject demo rows. It is not used in production with callback off.
+Venue and Fireblocks credentials are in-memory. A process restart drops pasted keys (env vars still load).
 
 ---
 

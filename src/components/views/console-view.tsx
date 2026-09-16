@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
+import { FireblocksTransferForm } from "@/components/fireblocks-transfer-form";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useJson } from "@/hooks/use-json";
+import type { FireblocksStatus, FireblocksVault, FireblocksWallet } from "@/lib/fireblocks-types";
 import { formatUsd } from "@/lib/format";
 import type { VenueSnapshot } from "@/lib/venues";
 import { cn } from "@/lib/utils";
@@ -24,6 +27,44 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
     initial,
   );
   const venues = data?.venues ?? [];
+  const { data: fbStatus } = useJson<FireblocksStatus>("/api/fireblocks/credentials", 8000);
+  const [vaults, setVaults] = useState<FireblocksVault[]>([]);
+  const [wallets, setWallets] = useState<{
+    external: FireblocksWallet[];
+    internal: FireblocksWallet[];
+  }>({ external: [], internal: [] });
+
+  useEffect(() => {
+    if (!fbStatus?.configured) return;
+    let cancelled = false;
+    void Promise.all([
+      fetch("/api/fireblocks/vaults").then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? "Unable to list vaults");
+        return body as { vaults: FireblocksVault[] };
+      }),
+      fetch("/api/fireblocks/wallets")
+        .then(async (response) => {
+          const body = await response.json();
+          if (!response.ok) return { external: [], internal: [] };
+          return body as { external: FireblocksWallet[]; internal: FireblocksWallet[] };
+        })
+        .catch(() => ({ external: [], internal: [] })),
+    ])
+      .then(([vaultPayload, walletPayload]) => {
+        if (cancelled) return;
+        setVaults(vaultPayload.vaults ?? []);
+        setWallets(walletPayload);
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          toast.error(caught instanceof Error ? caught.message : "Unable to load Fireblocks vaults");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fbStatus?.configured]);
 
   return (
     <div className="space-y-6">
@@ -67,6 +108,9 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
             <VenueCard
               key={venue.id}
               venue={venue}
+              fireblocksConfigured={Boolean(fbStatus?.configured)}
+              vaults={vaults}
+              wallets={wallets}
               onUpdate={(next) => {
                 setData({
                   venues: venues.map((item) => (item.id === next.id ? next : item)),
@@ -86,9 +130,15 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
 function VenueCard({
   venue,
   onUpdate,
+  fireblocksConfigured,
+  vaults,
+  wallets,
 }: {
   venue: VenueSnapshot;
   onUpdate: (venue: VenueSnapshot) => void;
+  fireblocksConfigured: boolean;
+  vaults: FireblocksVault[];
+  wallets: { external: FireblocksWallet[]; internal: FireblocksWallet[] };
 }) {
   const [margin, setMargin] = useState(String(venue.thresholds.marginTriggerPct));
   const [maxTransfer, setMaxTransfer] = useState(String(venue.thresholds.maxTransferUsd));
@@ -267,6 +317,31 @@ function VenueCard({
           <Button type="button" variant="outline" disabled={busy} onClick={() => void evaluate()}>
             Dry-run transfer
           </Button>
+        </div>
+
+        <div className="border-t border-border/80 pt-3">
+          <p className="text-xs font-medium">Send via Fireblocks</p>
+          {fireblocksConfigured ? (
+            <div className="mt-3">
+              <FireblocksTransferForm
+                key={venue.id}
+                venueId={venue.id}
+                defaultAmount={String(venue.suggestedTransferUsd || venue.thresholds.maxTransferUsd)}
+                defaultNote={`TAP Console · ${venue.name}`}
+                disabled={busy}
+                vaults={vaults}
+                wallets={wallets}
+              />
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Connect the Fireblocks API key and RSA PEM on{" "}
+              <Link href="/policy" className="text-teal-300 underline-offset-2 hover:underline">
+                Fireblocks TAP
+              </Link>{" "}
+              first. Dry-run only checks venue TAP; this button posts POST /v1/transactions.
+            </p>
+          )}
         </div>
 
         <div className="border-t border-border/80 pt-3">

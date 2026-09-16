@@ -1,8 +1,8 @@
 # TAP Console
 
-Live venue TAP for Albert Hyperliquid and Albert Lighter. **No demo history, no fake Co-Signer fleet.**
+Live venue TAP for Albert Hyperliquid and Albert Lighter, plus a working **Fireblocks API desk**. No demo history, no fake Co-Signer fleet.
 
-Fireblocks TAP is policy. Auto-sign still needs a Fireblocks API Co-Signer (MPC). This app does not run MPC.
+Paste a Fireblocks API key UUID and RSA private key on `/policy` (or set env vars). The server signs JWTs and calls TAP, vaults, and `POST /v1/transactions`.
 
 **Manual:** [docs/MANUAL.md](docs/MANUAL.md)
 
@@ -18,7 +18,7 @@ flowchart TD
   end
 
   subgraph runtime [Each transfer]
-    B0[Venue TAP Console: margin + max transfer] --> B1[Bot signs JWT with RSA private key]
+    B0[Venue TAP Console: margin + max transfer] --> B1[Bot or this desk signs JWT]
     B1 --> B2[POST /v1/transactions]
     B2 --> TAP{Fireblocks TAP}
     TAP -->|BLOCK| X1[Fail — never reaches Co-Signer]
@@ -38,8 +38,16 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:43147/console](http://localhost:43147/console).
+Open [http://localhost:43147](http://localhost:43147).
+
+Optional env (never commit secrets):
+
+```
+FIREBLOCKS_API_KEY=
+FIREBLOCKS_SECRET_KEY=
+FIREBLOCKS_API_BASE=https://api.fireblocks.io
+```
 
 ## Stack
 
-Next.js, TypeScript, Tailwind, shadcn/ui. Queue and venue TAP state are in-memory for the Node process.
+Next.js, TypeScript, Tailwind, shadcn/ui. Venue TAP and Fireblocks credentials are in-memory for the Node process.

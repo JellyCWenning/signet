@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-sm font-medium">TAP Console</span>
           </div>
           <p className="hidden text-sm text-muted-foreground lg:block">
-            Venue TAP · Fireblocks TAP · no callback · no demo data
+            Venue TAP · Fireblocks API · no callback
           </p>
         </header>
         <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
