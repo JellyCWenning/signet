@@ -3,7 +3,8 @@
  *
  * Later developers: copy one `DESK_RAILS` row, seed matching venue ids in
  * `venues.ts`, allowlist the destination wallets in Fireblocks Console, and
- * keep TAP ALLOW + designated signer covering TRANSFER and TYPED_MESSAGE.
+ * keep TAP ALLOW + designated signer covering TRANSFER, TYPED_MESSAGE, and
+ * CONTRACT_CALL (Lighter is Relay depositErc20, not ERC20 TRANSFER).
  * Then call `routeVenueFunds` (or POST `/api/fireblocks/route`). Same flow.
  */
 

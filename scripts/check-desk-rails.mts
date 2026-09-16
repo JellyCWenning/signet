@@ -15,6 +15,7 @@ import {
   venueKindOnRail,
   assertErc20TransferCredits,
 } from "../src/lib/fireblocks-desk.ts";
+import { usdcToMicro } from "../src/lib/relay-lighter.ts";
 
 test("eason_albert rail is the proven HL ↔ Lighter vault", () => {
   const rail = railById("eason_albert");
@@ -64,6 +65,11 @@ test("HL withdraw covers the shortfall plus the $1 fee", () => {
   assert.equal(hyperliquidWithdrawToCover(5, 1), null);
   assert.equal(hyperliquidWithdrawToCover(0, 1), "2");
   assert.equal(hyperliquidWithdrawToCover(0.25, 1), "1.75");
+});
+
+test("usdcToMicro is six decimals", () => {
+  assert.equal(usdcToMicro("2"), "2000000");
+  assert.equal(usdcToMicro(19), "19000000");
 });
 
 test("every rail has a vault, L1, asset, and at least one destination", () => {

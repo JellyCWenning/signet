@@ -246,7 +246,7 @@ flowchart TD
   W --> H[POST Hyperliquid /exchange]
   H --> V[Wait until vault USDC_ARB covers amount]
   V --> C
-  C -->|relay_deposit_erc20 Lighter| R[Relay quote/v2 then CONTRACT_CALL depositErc20]
+  C -->|relay_deposit_erc20 Lighter| R[Relay quote/v2 then CONTRACT_CALL approve + depositErc20]
   C -->|erc20_transfer| T[TRANSFER to allowlisted dest]
 ```
 
@@ -255,12 +255,12 @@ flowchart TD
 | `TYPED_MESSAGE` | EIP-712 `HyperliquidTransaction:Withdraw` signed by the vault | Hyperliquid `withdraw3` is not a Fireblocks TRANSFER. Co-Signer must cover **TYPED_MESSAGE**. |
 | Hyperliquid `/exchange` | Broadcast `withdraw3` with `v = 27 + sig.v` | Moves USDC from HL to the vault L1 on Arbitrum. HL charges **$1** on top of the requested amount. |
 | Wait vault | Poll `USDC_ARB_3SBJ` available | Bridging/credit can take minutes. |
-| Lighter credit | Relay `POST /quote/v2` (`destinationChainId` **3586256**, `recipient` = Lighter `account_index`) then Fireblocks **CONTRACT_CALL** `depositErc20` | `0x4cd00e…` is Relay Depository. Naked ERC20 TRANSFER is not indexed. TAP must ALLOW CONTRACT_CALL (+ USDC APPROVE). |
+| Lighter credit | Relay `POST /quote/v2` (`destinationChainId` **3586256**, `recipient` = Lighter `account_index`) then Fireblocks **CONTRACT_CALL** `USDC.approve` (if needed) + **CONTRACT_CALL** `depositErc20` | `0x4cd00e…` is Relay Depository. Naked ERC20 TRANSFER is not indexed. TAP must ALLOW CONTRACT_CALL to the Depository and to USDC `0xaf88…` (or leftover allowance from a prior DeFi approve). |
 | Hyperliquid dest | Allowlisted contract `0688ebcf-…` | Still a contract; confirm credit mode before a reverse test. |
 
-`routeVenueFunds` runs Relay `quote/v2` then Fireblocks **APPROVE** + **CONTRACT_CALL** `depositErc20` for Lighter. It still refuses a naked ERC20 TRANSFER to that dest.
+`routeVenueFunds` runs Relay `quote/v2` then Fireblocks **CONTRACT_CALL** `USDC.approve` (Fireblocks APPROVE only as fallback; skipped when on-chain allowance already covers the amount) + **CONTRACT_CALL** `depositErc20` for Lighter. It still refuses a naked ERC20 TRANSFER to that dest.
 
-Vault buffer: `POST /api/fireblocks/vault/ensure` `{ "amount": "20", "railId": "eason_albert" }` withdraws from Hyperliquid until the vault holds that much (HL still takes $1 extra). Then route 1 USDC to Lighter from the vault.
+Vault buffer: `POST /api/fireblocks/vault/ensure` `{ "amount": "19", "railId": "eason_albert" }` withdraws from Hyperliquid until the vault holds that much (HL still takes $1 extra). Then route 2 USDC to Lighter from the vault.
 
 Lighter → vault: Relay quote returns a Lighter L2 `transfer` (API-key signer). Quote is wired; sendTx still needs a Lighter API key registered with an L1 EIP-191.
 
@@ -302,7 +302,7 @@ Catalog check (no network): `npm run check:rails`.
 ### Add another Fireblocks account (same flow)
 
 1. **Fireblocks Console** — create / pick the vault. Copy the L1 deposit address. Allowlist destination wallets (Hyperliquid bridge contract, Lighter contract, …) as EXTERNAL_WALLET. Record each dest UUID.
-2. **TAP** — ALLOW for this vault, those dests, asset `USDC_ARB_*`, operations **TRANSFER**, **TYPED_MESSAGE**, and **CONTRACT_CALL** (Lighter Relay deposit), **designated signer** = the paired API user. Co-signers Online. Callback URL empty. If TYPED_MESSAGE is missing, withdraw goes to mobile and comes back `REJECTED_BY_USER`.
+2. **TAP** — ALLOW for this vault, those dests, asset `USDC_ARB_*`, operations **TRANSFER**, **TYPED_MESSAGE**, and **CONTRACT_CALL** (Lighter Relay deposit + USDC approve), **designated signer** = the paired API user. Co-signers Online. Callback URL empty. If TYPED_MESSAGE is missing, withdraw goes to mobile and comes back `REJECTED_BY_USER`.
 3. **TAP Console catalog** — add one row to `DESK_RAILS` in `src/lib/fireblocks-desk.ts` (`vaultId`, `l1Address`, `arbUsdcAssetId`, dest UUIDs, TAP venue ids).
 4. **TAP venues** — seed matching records in `src/lib/venues.ts` (`hyperliquid_*` address = L1, Lighter `account_index` from Lighter `accountsByL1Address`).
 5. **Call** `routeVenueFunds` or `POST /api/fireblocks/route` with the new venue ids. Do not add a second transaction builder.

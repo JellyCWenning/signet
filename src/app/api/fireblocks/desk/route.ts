@@ -20,7 +20,7 @@ export async function GET() {
     notes: {
       hyperliquidWithdraw: "TYPED_MESSAGE withdraw3 (plus $1 HL fee), then wait for USDC_ARB in the vault",
       lighterDeposit:
-        "Relay quote/v2 + Fireblocks APPROVE + CONTRACT_CALL depositErc20. ERC20 TRANSFER does not credit.",
+        "Relay quote/v2 + CONTRACT_CALL USDC.approve (or leftover allowance) + CONTRACT_CALL depositErc20. ERC20 TRANSFER does not credit.",
       hyperliquidDeposit: "TRANSFER / CONTRACT_CALL USDC_ARB to the Hyperliquid allowlisted contract",
       skipWithdraw: "If the vault already holds enough USDC_ARB, routing only TRANSFERs",
       notSendEndpoint:
