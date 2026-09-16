@@ -4,13 +4,13 @@ This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts 
 
 It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/console`. Flow: `/flow`. Fireblocks TAP: [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor. Ops: [OPS.md](OPS.md).
+Live Console: `/`. Fireblocks TAP: [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor. Ops: [OPS.md](OPS.md).
 
 ---
 
 ## TAP Console (venue triggers)
 
-Edit **account margin** (remaining %) and **max single transfer** at `/console`.
+Edit **account margin** (remaining %) and **max single transfer** at `/`.
 
 Seeded accounts:
 
@@ -228,14 +228,9 @@ npm run dev
 
 Open [http://localhost:43147](http://localhost:43147).
 
-| Page | Use |
-| --- | --- |
-| `/` | Live Albert balances, Fireblocks connection status |
-| `/console` | Venue TAP + Send via Fireblocks |
-| `/flow` | Signing path through Fireblocks TAP and Co-Signer |
-| `/settings` | JWT status from host env, reset Albert TAP |
+The only page is `/` (venue TAP + Send via Fireblocks). Other paths redirect here.
 
-Venue TAP is in-memory. Fireblocks JWT is host env (`.env.local`). A process restart does not drop host env. `/ops` and `/policy` redirect to `/`.
+Venue TAP is in-memory. Fireblocks JWT is host env (`.env.local`).
 
 ---
 

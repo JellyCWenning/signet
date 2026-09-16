@@ -118,7 +118,7 @@ tail -f /var/log/customer_cosigner.log
 2. Console: Developer Center → Co-signers → Online, API user paired.
 3. Fireblocks Console TAP: ALLOW + designated signer (workspace TAP, not Tokyo venue TAP).
 4. JWT already on Tokyo in `/opt/tap-console/.env.local`. Do not paste RSA into the website.
-5. Small ALLOW transfer from Tokyo `/console` or a bot. Mobile should not be required unless TAP is 2-TIER.
+5. Small ALLOW transfer from Tokyo `/` or a bot. Mobile should not be required unless TAP is 2-TIER.
 6. Rotate keys that appeared in chat: delete IAM user `cursor-temp-cosigner` access keys; revoke any GitHub PAT used to push this repo. Do not commit those values.
 7. HTTPS for Tokyo TAP when you are ready (ACM / ALB or nginx cert).
 

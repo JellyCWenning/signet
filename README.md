@@ -2,7 +2,7 @@
 
 Live venue TAP for Albert Hyperliquid and Albert Lighter. The Tokyo HTTP desk does **not** accept RSA PEMs and does **not** edit Fireblocks TAP.
 
-TAP UI: http://13.196.167.126/ (Tokyo t3.small `i-029023e02658d5cb2`)
+TAP UI: http://13.196.167.126/ — Console only. Other paths redirect here.
 Co-Signer: us-east-1 `i-0726e50457f1cf8b2` Nitro, paired to API user `c49cc13a-b267-48eb-876c-37e4bc1eb07a`, callback off
 Blocker: workspace Owner must approve the MPC key-share in the Fireblocks mobile app within 120 hours, then confirm Co-signers tab is Online
 
