@@ -32,10 +32,7 @@ export function OverviewView({ initialVenues }: { initialVenues: ConsolePayload 
               Open Console
             </Button>
             <Button nativeButton={false} variant="outline" render={<Link href="/flow" />}>
-              With Fireblocks
-            </Button>
-            <Button nativeButton={false} variant="outline" render={<Link href="/direct" />}>
-              No Fireblocks
+              Flow
             </Button>
           </div>
         }

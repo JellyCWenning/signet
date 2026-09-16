@@ -4,7 +4,7 @@ This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts 
 
 It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/console`. With Fireblocks: `/flow`. No Fireblocks: `/direct`. Fireblocks TAP (live API): `/policy`.
+Live Console: `/console`. Flow: `/flow`. Fireblocks TAP (live API): `/policy`.
 
 ---
 
@@ -242,8 +242,7 @@ Open [http://localhost:43147](http://localhost:43147).
 | `/` | Live Albert balances, Fireblocks connection status |
 | `/console` | Venue TAP + Send via Fireblocks |
 | `/policy` | Fireblocks credentials, TAP, vaults, transfers, txs |
-| `/flow` | Path A — with Fireblocks |
-| `/direct` | Path B — no Fireblocks |
+| `/flow` | Signing path through Fireblocks TAP and Co-Signer |
 | `/settings` | Same Fireblocks credentials form, reset Albert TAP |
 
 Venue and Fireblocks credentials are in-memory. A process restart drops pasted keys (env vars still load).

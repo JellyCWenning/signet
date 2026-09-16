@@ -1,18 +1,15 @@
-import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { FlowSwitch } from "@/components/flow-switch";
 
 export function FlowView() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Path A"
-        title="With Fireblocks"
+        eyebrow="Signing path"
+        title="Fireblocks flow"
         description="Custody and signing stay in Fireblocks. This app only decides whether the bot is allowed to create a transfer."
       />
-      <FlowSwitch current="fireblocks" />
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
         {PIPELINE.map((node) => (
@@ -60,13 +57,6 @@ export function FlowView() {
           </Card>
         ))}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        Direct venue path (no Fireblocks):{" "}
-        <Link href="/direct" className="text-teal-300 underline-offset-2 hover:underline">
-          /direct
-        </Link>
-      </p>
     </div>
   );
 }
