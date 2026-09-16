@@ -1,10 +1,8 @@
 import {
-  clearFireblocksCredentials,
   extractVaults,
   fireblocksConfigured,
   fireblocksGetFirst,
   publicFireblocksStatus,
-  setFireblocksCredentials,
 } from "@/lib/fireblocks-store";
 import { NextResponse } from "next/server";
 
@@ -14,30 +12,14 @@ export async function GET() {
   return NextResponse.json(publicFireblocksStatus());
 }
 
-export async function PUT(request: Request) {
-  const body = (await request.json().catch(() => ({}))) as {
-    apiKey?: string;
-    privateKey?: string;
-    baseUrl?: string;
-    clear?: boolean;
-  };
-  if (body.clear) {
-    clearFireblocksCredentials();
-    return NextResponse.json(publicFireblocksStatus());
-  }
-  try {
-    setFireblocksCredentials({
-      apiKey: body.apiKey ?? "",
-      privateKey: body.privateKey ?? "",
-      baseUrl: body.baseUrl,
-    });
-    return NextResponse.json(publicFireblocksStatus());
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to store credentials" },
-      { status: 400 },
-    );
-  }
+export async function PUT() {
+  return NextResponse.json(
+    {
+      error:
+        "Fireblocks RSA is not accepted over HTTP. Set FIREBLOCKS_API_KEY and FIREBLOCKS_SECRET_KEY in /opt/tap-console/.env.local on the host.",
+    },
+    { status: 405 },
+  );
 }
 
 export async function POST(request: Request) {
@@ -46,7 +28,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
   }
   if (!fireblocksConfigured()) {
-    return NextResponse.json({ error: "Fireblocks credentials are not set" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Fireblocks credentials are not set in host env (.env.local)" },
+      { status: 400 },
+    );
   }
   try {
     const result = await fireblocksGetFirst<unknown>([

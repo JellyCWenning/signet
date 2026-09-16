@@ -34,6 +34,7 @@ export interface VenueRecord {
   tags: string[];
   useDemo: boolean;
   enabled: boolean;
+  readOnly: boolean;
   thresholds: VenueThresholds;
   credentials: Record<string, string>;
 }
@@ -63,6 +64,7 @@ export interface VenueSnapshot {
   useDemo: boolean;
   blurb: string;
   enabled: boolean;
+  readOnly: boolean;
   thresholds: VenueThresholds;
   live: VenueLiveState;
   queriedAs?: string;
@@ -186,6 +188,8 @@ export function isExchangeId(value: string): value is ExchangeId {
 /** Albert Lighter account_index resolved from L1 0x952e… via accountsByL1Address. */
 export const LIGHTER_ALBERT_ACCOUNT_INDEX = "732041";
 
+export const READ_ONLY_EXCHANGES: ExchangeId[] = ["hyperliquid", "lighter"];
+
 export function defaultVenueRecords(): VenueRecord[] {
   return [
     {
@@ -195,6 +199,7 @@ export function defaultVenueRecords(): VenueRecord[] {
       tags: ["ALBERT"],
       useDemo: false,
       enabled: true,
+      readOnly: false,
       thresholds: { marginTriggerPct: 15, maxTransferUsd: 25_000 },
       credentials: {
         account_address: "0x952eFBB40F0886BD9474Ff10eE0893fB0C604956",
@@ -208,6 +213,7 @@ export function defaultVenueRecords(): VenueRecord[] {
       tags: ["ALBERT"],
       useDemo: false,
       enabled: true,
+      readOnly: false,
       thresholds: { marginTriggerPct: 18, maxTransferUsd: 15_000 },
       credentials: {
         base_url: "https://mainnet.zklighter.elliot.ai",

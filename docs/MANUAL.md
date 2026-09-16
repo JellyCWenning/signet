@@ -1,28 +1,32 @@
 # Fireblocks Co-Sign — Operator Manual
 
-This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts and talks to the **Fireblocks API** when you paste an API key + RSA PEM.
+This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts and can submit Fireblocks transfers when the **host** has `FIREBLOCKS_API_KEY` + `FIREBLOCKS_SECRET_KEY`. The HTTP UI does not accept RSA PEMs and does not edit Fireblocks TAP.
 
 It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/console`. Flow: `/flow`. Fireblocks TAP (live API): `/policy`.
+Live Console: `/`. Accounts: `/accounts`. Fireblocks TAP: [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor. Ops: [OPS.md](OPS.md).
 
 ---
 
 ## TAP Console (venue triggers)
 
-Edit **account margin** (remaining %) and **max single transfer** at `/console`.
+Edit **account margin** (remaining %) and **max single transfer** at `/`.
 
 Seeded accounts:
 
 - `hyperliquid_albert` — Albert Hyperliquid, address `0x952e…4956`
 - `lighter_albert` — Albert Lighter, `account_index` **732041**, `api_key_index` 4
 
+Add more Hyperliquid / Lighter **read-only** watch accounts at `/accounts` (public address or account index only; not Fireblocks vaults). They persist in `accounts.local.json` on the host.
+
 When remaining margin is at or below the trigger, the bot may send a Fireblocks transfer up to that account’s max. Fireblocks TAP still has to ALLOW the transfer.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/venues` | List venues, live balances, thresholds |
+| `POST` | `/api/venues` | Add a read-only Hyperliquid / Lighter account |
 | `GET` | `/api/venues/:id` | One venue |
+| `DELETE` | `/api/venues/:id` | Remove a user-added watch account |
 | `PUT` | `/api/venues/:id/thresholds` | `{ enabled, marginTriggerPct, maxTransferUsd }` |
 | `PUT` | `/api/venues/:id/credentials` | Store API fields in process memory. Never written to disk. |
 | `POST` | `/api/venues/evaluate` | `{ venueId, amountUsd }` → allow / cap / reasons |
@@ -31,7 +35,7 @@ When remaining margin is at or below the trigger, the bot may send a Fireblocks 
 
 ## Fireblocks API (this desk)
 
-Paste credentials on `/policy` or `/settings`, or set env vars. The server signs an RS256 JWT on every call (`X-API-Key` + `Authorization: Bearer`). Secrets stay in process memory.
+JWT comes from host env only. This HTTP site is not a place to paste RSA.
 
 | Env | Purpose |
 | --- | --- |
@@ -42,12 +46,8 @@ Paste credentials on `/policy` or `/settings`, or set env vars. The server signs
 | Method | Path | Fireblocks call |
 | --- | --- | --- |
 | `GET` | `/api/fireblocks/credentials` | Status only (last 4 of key). No secrets. |
-| `PUT` | `/api/fireblocks/credentials` | Store `{ apiKey, privateKey, baseUrl }` or `{ clear: true }` |
+| `PUT` | `/api/fireblocks/credentials` | **405** — RSA is not accepted over HTTP |
 | `POST` | `/api/fireblocks/credentials` | `{ action: "ping" }` → vault list |
-| `GET` | `/api/fireblocks/policy` | `GET /v1/policy/active_policy?policyType=TRANSFER` |
-| `GET` | `/api/fireblocks/policy/draft` | `GET /v1/policy/draft?policyType=TRANSFER` |
-| `PUT` | `/api/fireblocks/policy/draft` | `PUT /v1/policy/draft` `{ policyTypes, rules }` |
-| `POST` | `/api/fireblocks/policy/draft` | `POST /v1/policy/draft` `{ draftId }` publish |
 | `GET` | `/api/fireblocks/vaults` | `GET /v1/vault/accounts_paged` |
 | `GET` | `/api/fireblocks/vaults/:id` | `GET /v1/vault/accounts/:id` |
 | `GET` | `/api/fireblocks/wallets` | External + internal wallets |
@@ -56,7 +56,7 @@ Paste credentials on `/policy` or `/settings`, or set env vars. The server signs
 | `POST` | `/api/fireblocks/transactions` | `POST /v1/transactions` TRANSFER |
 | `POST` | `/api/fireblocks/send` | Venue TAP gate, then create transfer |
 
-A Signer bot can create transfers. Reading / editing TAP needs Owner / Admin / Non-Signing Admin. Publish still needs mobile approval.
+A Signer bot can create transfers. Reading / editing Fireblocks TAP needs Owner / Admin / Non-Signing Admin in the **Fireblocks Console**. Publish still needs mobile approval.
 
 Do not put `fireblocks_secret.key` or production API keys in this repository.
 
@@ -73,7 +73,7 @@ Do not put `fireblocks_secret.key` or production API keys in this repository.
 | TAP ALLOW | Source, destination, asset, amount; **designated signer** = this API user |
 | No callback URL | If none is set, TAP-allowed requests are signed automatically |
 
-This desk can submit `POST /v1/transactions` from `/policy` or Console **Send via Fireblocks**. A production bot can still call Fireblocks directly with the same JWT.
+This desk can submit `POST /v1/transactions` from Console **Send via Fireblocks**. A production bot can still call Fireblocks directly with the same JWT.
 
 ---
 
@@ -186,9 +186,9 @@ This desk’s **Bots** page is a local pairing model only. Production pairing is
 
 ## 4. Change TAP (recommended: Console)
 
-Do this in the Console. You do not need to give anyone an API key.
+Do this in the Fireblocks Console. The Tokyo HTTP desk cannot load or save TAP.
 
-1. Console → **Settings → Policy Editor**.
+1. [console.fireblocks.io](https://console.fireblocks.io) → **Settings → Policy Editor**.
 2. Match rules top to bottom. Strict rules first.
 3. For this bot: **ALLOW**, with this API user as **designated signer**, limited to the vaults, destinations, and amounts it may move.
 4. Save. Owner / Admin review **Review Policy changes**, then approve on the **Fireblocks mobile app**.
@@ -199,12 +199,7 @@ Do this in the Console. You do not need to give anyone an API key.
 | BLOCK | Transfer fails; never reaches Co-Signer |
 | 2-TIER | Human in Console / mobile — not this desk |
 
-Optional API from this desk (Owner / Admin / Non-Signing Admin; still needs RSA JWT):
-
-- This app: `/policy` → Load active TAP / Save draft / Publish draft
-- Or Console: **Settings → Policy Editor**, then mobile approval
-
-A Signer bot cannot read or edit TAP.
+A Signer bot cannot read or edit TAP. This HTTP site does not expose TAP draft APIs.
 
 ---
 
@@ -224,7 +219,7 @@ Minimum body: `assetId`, `source`, `destination`, `amount`.
 
 Then Fireblocks TAP runs. If ALLOW, the paired Co-Signer signs in the enclave.
 
-This desk can also submit that same `POST /v1/transactions` from **Fireblocks TAP → Transfer** or Console **Send via Fireblocks** (venue TAP is checked first).
+This desk can also submit that same `POST /v1/transactions` from Console **Send via Fireblocks** (venue TAP is checked first).
 
 ---
 
@@ -237,15 +232,9 @@ npm run dev
 
 Open [http://localhost:43147](http://localhost:43147).
 
-| Page | Use |
-| --- | --- |
-| `/` | Live Albert balances, Fireblocks connection status |
-| `/console` | Venue TAP + Send via Fireblocks |
-| `/policy` | Fireblocks credentials, TAP, vaults, transfers, txs |
-| `/flow` | Signing path through Fireblocks TAP and Co-Signer |
-| `/settings` | Same Fireblocks credentials form, reset Albert TAP |
+The pages are `/` (venue TAP) and `/accounts` (read-only Hyperliquid / Lighter watch accounts). Other paths redirect to `/`.
 
-Venue and Fireblocks credentials are in-memory. A process restart drops pasted keys (env vars still load).
+Venue TAP is in-memory. Fireblocks JWT is host env (`.env.local`).
 
 ---
 
@@ -254,3 +243,13 @@ Venue and Fireblocks credentials are in-memory. A process restart drops pasted k
 Nothing against Fireblocks. The UUID is an identifier. Without the matching RSA private key there is no JWT, so no read TAP, no edit TAP, no create transaction, no pairing.
 
 Do not put `fireblocks_secret.key` or production API keys in this repository.
+
+---
+
+## Live machines (do not mix)
+
+See [OPS.md](OPS.md) for instance IDs, PCR8, IAM, and remaining Owner steps.
+
+This Tokyo desk is venue TAP + Fireblocks JWT only. The Nitro Co-Signer in `us-east-1` holds the customer MPC share. Do not attach the Co-Signer IAM role to Tokyo. Do not change the Co-Signer S3 bucket policy (Console Access Denied is expected).
+
+Blocker: workspace Owner must approve the MPC key-share in the Fireblocks mobile app within 120 hours, then confirm Developer Center → Co-signers is Online.
