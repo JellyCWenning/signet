@@ -1,8 +1,10 @@
 # Fireblocks Co-Sign — Operator Manual
 
-This desk pairs a Fireblocks **Signer API bot** to an **API Co-Signer**. **Fireblocks workspace TAP** is the only policy. **Callback is off.** After TAP allows a transfer, the Co-Signer signs inside its enclave without calling this app.
+This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts. It does not host a Co-Signer, does not store Fireblocks TAP, and does not invent signing history.
 
-Live diagram: `/flow`. Venue TAP Console: `/console`. Fireblocks TAP how-to: `/policy`. Pairing: `/bot`.
+Fireblocks TAP is policy. Auto-sign still needs a Fireblocks API Co-Signer (MPC enclave). Pair that in Fireblocks. Callback stays off.
+
+Live Console: `/console`. Fireblocks TAP how-to: `/policy`. Path: `/flow`.
 
 ---
 

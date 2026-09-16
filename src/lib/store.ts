@@ -1,12 +1,5 @@
 import { normalizeCallback, parseCallbackBody } from "@/lib/callback";
-import {
-  DEFAULT_POLICY,
-  DEFAULT_SETTINGS,
-  defaultApiUsers,
-  defaultCosigners,
-  defaultRequests,
-  seedAudit,
-} from "@/lib/seed";
+import { DEFAULT_SETTINGS } from "@/lib/seed";
 import { resetVenues } from "@/lib/venue-store";
 import type {
   ApiUser,
@@ -26,6 +19,7 @@ import type {
 } from "@/lib/types";
 
 interface CoSignState {
+  version: number;
   requests: SignRequest[];
   audit: AuditEvent[];
   rules: PolicyRule[];
@@ -36,54 +30,37 @@ interface CoSignState {
   botMessages: BotMessage[];
 }
 
+const STORE_VERSION = 3;
+
 const globalForStore = globalThis as typeof globalThis & {
   __fbCoSign?: CoSignState;
 };
 
-function createState(now = Date.now()): CoSignState {
-  const requests = defaultRequests(now).map((request) => ({
-    ...request,
-    rawPayload: request.rawPayload ?? {},
-  }));
+function createState(): CoSignState {
   return {
-    requests,
-    audit: seedAudit(requests, now),
-    rules: structuredClone(DEFAULT_POLICY),
-    cosigners: defaultCosigners(now),
-    apiUsers: defaultApiUsers(),
+    version: STORE_VERSION,
+    requests: [],
+    audit: [],
+    rules: [],
+    cosigners: [],
+    apiUsers: [],
     settings: { ...DEFAULT_SETTINGS },
     bot: {
-      name: "Northstar Ops Bot",
+      name: "Ops bot",
       kind: "telegram",
-      status: "connected",
-      chatId: "@northstar_ops",
-      autoNotifyHolds: true,
+      status: "disconnected",
+      chatId: "",
+      autoNotifyHolds: false,
     },
-    botMessages: [
-      {
-        id: "bot_hello",
-        at: new Date(now - 60_000).toISOString(),
-        direction: "out",
-        text: "Ops bot connected. Callback off. TAP is the only gate. Bots sign JWTs with RSA; the enclave signs TAP-allowed transfers.",
-      },
-    ],
+    botMessages: [],
   };
 }
 
 function state(): CoSignState {
-  if (!globalForStore.__fbCoSign) {
+  if (!globalForStore.__fbCoSign || globalForStore.__fbCoSign.version !== STORE_VERSION) {
     globalForStore.__fbCoSign = createState();
   }
-  const current = globalForStore.__fbCoSign;
-  if (!current.bot || !current.botMessages) {
-    const fresh = createState();
-    current.bot = fresh.bot;
-    current.botMessages = fresh.botMessages;
-  }
-  if (!current.apiUsers) {
-    current.apiUsers = defaultApiUsers();
-  }
-  return current;
+  return globalForStore.__fbCoSign;
 }
 
 function record(

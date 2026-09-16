@@ -3,13 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bot,
-  ClipboardList,
   Gavel,
   GitBranch,
   LayoutDashboard,
   Menu,
-  ScrollText,
   Settings,
   Shield,
   SlidersHorizontal,
@@ -17,44 +14,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useJson } from "@/hooks/use-json";
-import { SimulateDialog } from "@/components/simulate-dialog";
 
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/console", label: "Console", icon: SlidersHorizontal },
-  { href: "/queue", label: "Queue", icon: ClipboardList },
   { href: "/policy", label: "Fireblocks TAP", icon: Gavel },
   { href: "/flow", label: "Flow", icon: GitBranch },
-  { href: "/bot", label: "Bots", icon: Bot },
-  { href: "/audit", label: "Audit", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function AppShell({
-  children,
-  initialPending = 0,
-}: {
-  children: React.ReactNode;
-  initialPending?: number;
-}) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { data } = useJson("/api/workspace", 4000, {
-    stats: {
-      pending: initialPending,
-      autoSigned24h: 0,
-      rejected24h: 0,
-      reviewed24h: 0,
-      onlineCosigners: 0,
-      totalCosigners: 0,
-    },
-  });
 
   return (
     <div className="flex min-h-full flex-1 bg-background">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         <Brand />
-        <Nav pathname={pathname} pending={data?.stats.pending ?? 0} />
+        <Nav pathname={pathname} />
         <WorkspaceFoot />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -70,15 +46,14 @@ export function AppShell({
                   <SheetTitle>Navigation</SheetTitle>
                 </SheetHeader>
                 <Brand />
-                <Nav pathname={pathname} pending={data?.stats.pending ?? 0} />
+                <Nav pathname={pathname} />
               </SheetContent>
             </Sheet>
-            <span className="text-sm font-medium">Fireblocks Co-Sign</span>
+            <span className="text-sm font-medium">TAP Console</span>
           </div>
           <p className="hidden text-sm text-muted-foreground lg:block">
-            Co-Signer · Fireblocks TAP · callback off
+            Venue TAP · Fireblocks TAP · no callback · no demo data
           </p>
-          <SimulateDialog />
         </header>
         <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
       </div>
@@ -93,14 +68,14 @@ function Brand() {
         <Shield className="size-4 text-teal-300" />
       </div>
       <div>
-        <p className="text-sm font-medium tracking-tight">Fireblocks Co-Sign</p>
-        <p className="text-[11px] text-muted-foreground">Northstar Production</p>
+        <p className="text-sm font-medium tracking-tight">TAP Console</p>
+        <p className="text-[11px] text-muted-foreground">Albert accounts</p>
       </div>
     </div>
   );
 }
 
-function Nav({ pathname, pending }: { pathname: string; pending: number }) {
+function Nav({ pathname }: { pathname: string }) {
   return (
     <nav className="flex flex-1 flex-col gap-0.5 px-3">
       {NAV.map((item) => {
@@ -122,11 +97,6 @@ function Nav({ pathname, pending }: { pathname: string; pending: number }) {
           >
             <Icon className="size-4" />
             <span className="flex-1">{item.label}</span>
-            {item.href === "/queue" && pending > 0 ? (
-              <span className="rounded-full bg-amber-400/20 px-1.5 text-[11px] text-amber-200">
-                {pending}
-              </span>
-            ) : null}
           </Link>
         );
       })}
@@ -139,9 +109,9 @@ function WorkspaceFoot() {
     <div className="border-t border-sidebar-border px-4 py-4 text-xs text-muted-foreground">
       <p className="flex items-center gap-1.5">
         <span className="size-1.5 rounded-full bg-teal-400" />
-        nitro-prod-1 online
+        live Hyperliquid + Lighter
       </p>
-      <p className="mt-1">callback off · TAP in Fireblocks</p>
+      <p className="mt-1">Co-Signer lives in Fireblocks, not here</p>
     </div>
   );
 }

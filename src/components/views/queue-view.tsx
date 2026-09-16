@@ -34,7 +34,7 @@ export function QueueView({ initial }: { initial: SignRequest[] }) {
       <PageHeader
         eyebrow="Queue"
         title="Signing and approval requests"
-        description="TAP-allowed signatures from the Co-Signer. Callback is off, so live signing no longer posts here."
+        description="This app does not host a signing queue. Co-Signer callbacks are off, so this list stays empty."
       />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

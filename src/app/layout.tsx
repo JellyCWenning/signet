@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
-import { getStats } from "@/lib/store";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,9 +16,9 @@ const geistMono = Geist_Mono({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Fireblocks Co-Sign",
+  title: "TAP Console",
   description:
-    "Pair a Fireblocks Signer bot to an API Co-Signer. TAP is the only policy. Callback is off.",
+    "Live venue TAP for Albert Hyperliquid and Lighter. Fireblocks TAP and Co-Signer stay in Fireblocks.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -30,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
-        <Providers pending={getStats().pending}>{children}</Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

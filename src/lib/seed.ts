@@ -4,9 +4,9 @@ const minutesAgo = (minutes: number, now: number) =>
   new Date(now - minutes * 60_000).toISOString();
 
 export const DEFAULT_SETTINGS: WorkspaceSettings = {
-  workspaceName: "Northstar Production",
+  workspaceName: "Albert",
   callbackAuth: "json",
-  operatorName: "ops@northstar",
+  operatorName: "operator",
 };
 
 export const DEFAULT_POLICY: PolicyRule[] = [

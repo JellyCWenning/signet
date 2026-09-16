@@ -1,10 +1,10 @@
-# Fireblocks Co-Sign
+# TAP Console
 
-Operator desk for a Fireblocks Signer bot plus venue trigger TAP.
+Live venue TAP for Albert Hyperliquid and Albert Lighter. **No demo history, no fake Co-Signer fleet.**
 
-**TAP Console** (`/console`) currently experiments with Albert Hyperliquid and Albert Lighter (account margin + max single transfer).
+Fireblocks TAP is policy. Auto-sign still needs a Fireblocks API Co-Signer (MPC). This app does not run MPC.
 
-**Usage manual:** [docs/MANUAL.md](docs/MANUAL.md)
+**Manual:** [docs/MANUAL.md](docs/MANUAL.md)
 
 ## Full path
 

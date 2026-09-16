@@ -1,13 +1,13 @@
 import { OverviewView } from "@/components/views/overview-view";
-import { recentSigned, workspacePayload } from "@/lib/payloads";
+import { listVenueSnapshots } from "@/lib/venue-store";
 
 export const dynamic = "force-dynamic";
 
-export default function OverviewPage() {
+export default async function OverviewPage() {
+  const venues = await listVenueSnapshots();
   return (
     <OverviewView
-      initialWorkspace={workspacePayload()}
-      initialQueue={recentSigned()}
+      initialVenues={{ venues, armedCount: venues.filter((item) => item.armed).length }}
     />
   );
 }

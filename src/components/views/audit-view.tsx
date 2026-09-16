@@ -23,7 +23,7 @@ export function AuditView({ initial }: { initial: AuditEvent[] }) {
       <PageHeader
         eyebrow="Workspace"
         title="Audit log"
-        description="Pairing, TAP-allowed signatures, and operator actions for this demo workspace."
+        description="No demo history. Only actions you take in this process are recorded."
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {loading && !data ? (

@@ -95,7 +95,7 @@ export function BotView({
       <PageHeader
         eyebrow="API Co-Signer"
         title="Bots"
-        description="Pair a Signer API user to a Co-Signer. The bot still needs its RSA private key to call Fireblocks. TAP is the gate. Callback is off."
+        description="Pair Signer bots in the Fireblocks Console. This page is not a Co-Signer fleet."
       />
 
       <Card>

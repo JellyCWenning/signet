@@ -1,8 +1,8 @@
 import { SettingsView } from "@/components/views/settings-view";
-import { workspacePayload } from "@/lib/payloads";
+import { getSettings, getStats } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export default function SettingsPage() {
-  return <SettingsView initial={workspacePayload()} />;
+  return <SettingsView initial={{ settings: getSettings(), stats: getStats() }} />;
 }
