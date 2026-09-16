@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "TAP Console",
   description:
-    "Live venue TAP for Albert Hyperliquid and Lighter. Fireblocks TAP and Co-Signer stay in Fireblocks.",
+    "Live venue TAP for Fireblocks-bound Hyperliquid / Lighter. Fireblocks TAP and Co-Signer stay in Fireblocks.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

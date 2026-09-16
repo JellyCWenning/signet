@@ -1,6 +1,6 @@
 # Fireblocks Co-Sign — Operator Manual
 
-This app sets **venue TAP** (margin trigger + max transfer) for Albert accounts and can submit Fireblocks transfers when the **host** has `FIREBLOCKS_API_KEY` + `FIREBLOCKS_SECRET_KEY`. The HTTP UI does not accept RSA PEMs and does not edit Fireblocks TAP.
+This app sets **venue TAP** (margin trigger + max transfer) for Fireblocks-bound Hyperliquid / Lighter and can submit Fireblocks transfers when the **host** has `FIREBLOCKS_API_KEY` + `FIREBLOCKS_SECRET_KEY`. The HTTP UI does not accept RSA PEMs and does not edit Fireblocks TAP.
 
 It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
@@ -14,10 +14,12 @@ Edit **account margin** (remaining %) and **max single transfer** at `/`.
 
 Seeded accounts:
 
-- `hyperliquid_albert` — Albert Hyperliquid, address `0x952e…4956`
-- `lighter_albert` — Albert Lighter, `account_index` **732041**, `api_key_index` 4
+- `hyperliquid_fireblocks` — Fireblocks Hyperliquid, vault 3 (Eason Albert) address `0x6759b70EA668e076180c06085d51449FB0d7EE90`
+- `lighter_fireblocks` — Fireblocks Lighter, same L1, `account_index` **747083**
 
 Add more Hyperliquid / Lighter **read-only** watch accounts at `/accounts` (public address or account index only; not Fireblocks vaults). They persist in `accounts.local.json` on the host.
+
+Hyperliquid equity is perp `clearinghouseState` plus spot USDC (and other USD stables). Money sitting only in spot used to look like $0 because the desk previously read perps only.
 
 When remaining margin is at or below the trigger, the bot may send a Fireblocks transfer up to that account’s max. Fireblocks TAP still has to ALLOW the transfer.
 

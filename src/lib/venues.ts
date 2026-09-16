@@ -90,7 +90,7 @@ export const EXCHANGE_CATALOG: ExchangeCatalogEntry[] = [
     id: "hyperliquid",
     name: "Hyperliquid",
     kind: "perp",
-    blurb: "Reads clearinghouseState from the Hyperliquid info API.",
+    blurb: "Reads perp clearinghouseState plus spot USDC from the Hyperliquid info API.",
     credentialFields: [
       {
         key: "account_address",
@@ -185,43 +185,43 @@ export function isExchangeId(value: string): value is ExchangeId {
   return EXCHANGE_CATALOG.some((item) => item.id === value);
 }
 
-/** Albert Lighter account_index resolved from L1 0x952e… via accountsByL1Address. */
-export const LIGHTER_ALBERT_ACCOUNT_INDEX = "732041";
+/** Fireblocks vault 3 (Eason Albert) deposit address, used as Hyperliquid + Lighter L1. */
+export const FIREBLOCKS_VAULT_ADDRESS = "0x6759b70EA668e076180c06085d51449FB0d7EE90";
+
+/** Lighter account_index for FIREBLOCKS_VAULT_ADDRESS via accountsByL1Address. */
+export const LIGHTER_FIREBLOCKS_ACCOUNT_INDEX = "747083";
 
 export const READ_ONLY_EXCHANGES: ExchangeId[] = ["hyperliquid", "lighter"];
 
 export function defaultVenueRecords(): VenueRecord[] {
   return [
     {
-      id: "hyperliquid_albert",
+      id: "hyperliquid_fireblocks",
       exchange: "hyperliquid",
-      displayName: "Albert Hyperliquid",
-      tags: ["ALBERT"],
+      displayName: "Fireblocks Hyperliquid",
+      tags: ["FIREBLOCKS"],
       useDemo: false,
       enabled: true,
       readOnly: false,
       thresholds: { marginTriggerPct: 15, maxTransferUsd: 25_000 },
       credentials: {
-        account_address: "0x952eFBB40F0886BD9474Ff10eE0893fB0C604956",
+        account_address: FIREBLOCKS_VAULT_ADDRESS,
         base_url: "https://api.hyperliquid.xyz",
       },
     },
     {
-      id: "lighter_albert",
+      id: "lighter_fireblocks",
       exchange: "lighter",
-      displayName: "Albert Lighter",
-      tags: ["ALBERT"],
+      displayName: "Fireblocks Lighter",
+      tags: ["FIREBLOCKS"],
       useDemo: false,
       enabled: true,
       readOnly: false,
       thresholds: { marginTriggerPct: 18, maxTransferUsd: 15_000 },
       credentials: {
         base_url: "https://mainnet.zklighter.elliot.ai",
-        l1_address: "0x952eFBB40F0886BD9474Ff10eE0893fB0C604956",
-        account_index: LIGHTER_ALBERT_ACCOUNT_INDEX,
-        api_key_index: "4",
-        api_pub_key:
-          "6fe69e255080e201e6c9142272ecb22a27f1d52b9dc69c5e54ba4c41e845ee9a9794c5326eb54f9d",
+        l1_address: FIREBLOCKS_VAULT_ADDRESS,
+        account_index: LIGHTER_FIREBLOCKS_ACCOUNT_INDEX,
       },
     },
   ];

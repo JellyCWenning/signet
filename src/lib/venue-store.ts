@@ -262,7 +262,7 @@ export async function createReadOnlyVenue(input: {
 }
 
 export function removeVenue(id: string): void {
-  if (SEED_IDS.has(id)) throw new Error("Seeded Albert accounts cannot be removed");
+  if (SEED_IDS.has(id)) throw new Error("Seeded TAP accounts cannot be removed");
   const state = venueState();
   const next = state.records.filter((item) => item.id !== id);
   if (next.length === state.records.length) throw new Error("Unknown venue");

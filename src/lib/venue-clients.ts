@@ -24,6 +24,34 @@ export interface VenueClient {
   fetchAccount(credentials: Record<string, string>): Promise<VenueLiveState>;
 }
 
+const HL_SPOT_STABLES = new Set(["USDC", "USDE", "USDT0", "USDH"]);
+
+function hlInfoBody(type: string, user: string) {
+  return {
+    method: "POST" as const,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type, user }),
+  };
+}
+
+function hlSpotStableUsd(raw: unknown): { total: number; available: number } {
+  const balances =
+    raw && typeof raw === "object" && Array.isArray((raw as { balances?: unknown }).balances)
+      ? (raw as { balances: Array<Record<string, unknown>> }).balances
+      : [];
+  let total = 0;
+  let available = 0;
+  for (const item of balances) {
+    const coin = String(item.coin ?? "").toUpperCase();
+    if (!HL_SPOT_STABLES.has(coin)) continue;
+    const amount = num(item.total);
+    const hold = num(item.hold);
+    total += amount;
+    available += Math.max(amount - hold, 0);
+  }
+  return { total, available };
+}
+
 class HyperliquidClient implements VenueClient {
   exchange = "hyperliquid" as const;
 
@@ -34,17 +62,17 @@ class HyperliquidClient implements VenueClient {
       return empty("Waiting on Hyperliquid account_address");
     }
     try {
-      const raw = (await getJson(`${base}/info`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type: "clearinghouseState", user }),
-      })) as {
-        marginSummary?: { accountValue?: string; totalMarginUsed?: string };
-        withdrawable?: string;
-      };
-      const equityUsd = num(raw.marginSummary?.accountValue);
-      const usedMarginUsd = num(raw.marginSummary?.totalMarginUsed);
-      const availableUsd = num(raw.withdrawable);
+      const [perp, spot] = await Promise.all([
+        getJson(`${base}/info`, hlInfoBody("clearinghouseState", user)) as Promise<{
+          marginSummary?: { accountValue?: string; totalMarginUsed?: string };
+          withdrawable?: string;
+        }>,
+        getJson(`${base}/info`, hlInfoBody("spotClearinghouseState", user)).catch(() => null),
+      ]);
+      const spotUsd = hlSpotStableUsd(spot);
+      const equityUsd = num(perp.marginSummary?.accountValue) + spotUsd.total;
+      const usedMarginUsd = num(perp.marginSummary?.totalMarginUsed);
+      const availableUsd = num(perp.withdrawable) + spotUsd.available;
       return {
         equityUsd,
         usedMarginUsd,

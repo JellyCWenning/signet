@@ -1,6 +1,6 @@
 # TAP Console
 
-Live venue TAP for Albert Hyperliquid and Albert Lighter. The Tokyo HTTP desk does **not** accept RSA PEMs and does **not** edit Fireblocks TAP.
+Live venue TAP for Fireblocks-bound Hyperliquid / Lighter. The Tokyo HTTP desk does **not** accept RSA PEMs and does **not** edit Fireblocks TAP.
 
 TAP UI: http://13.196.167.126/ — Console + Accounts. Other leftover paths redirect here.
 Co-Signer: us-east-1 `i-0726e50457f1cf8b2` Nitro, paired to API user `c49cc13a-b267-48eb-876c-37e4bc1eb07a`, callback off
