@@ -7,39 +7,39 @@ Co-Signer: us-east-1 `i-0726e50457f1cf8b2` Nitro, paired to API user `c49cc13a-b
 
 Fireblocks JWT is host env only (`FIREBLOCKS_API_KEY` / `FIREBLOCKS_SECRET_KEY` in `/opt/tap-console/.env.local`). Workspace TAP (ALLOW / BLOCK / 2-TIER) is edited in [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor.
 
-**Manual:** [docs/MANUAL.md](docs/MANUAL.md) · **Ops (do not mix machines):** [docs/OPS.md](docs/OPS.md)
+**Manual:** [docs/MANUAL.md](docs/MANUAL.md) · **Routing (HL ↔ Lighter reuse):** [docs/ROUTING.md](docs/ROUTING.md) · **Ops (do not mix machines):** [docs/OPS.md](docs/OPS.md)
 
 ## Reuse: venue-to-venue USDC (any Fireblocks vault on this flow)
 
-Hyperliquid ↔ Lighter on one Fireblocks L1 is encapsulated. Later accounts copy a catalog row; they do not rewrite signing.
+Hyperliquid ↔ Lighter on one Fireblocks L1 is two named methods. Later accounts copy a catalog row; they do not rewrite signing.
 
 | Piece | Where |
 | --- | --- |
-| Catalog | `src/lib/fireblocks-desk.ts` → `DESK_RAILS` |
-| One call | `routeVenueFunds` in `src/lib/fireblocks-rails.ts` |
-| HTTP | `GET /api/fireblocks/desk` · `POST /api/fireblocks/vault/ensure` · `POST /api/fireblocks/route` |
+| Catalog | `src/lib/fireblocks-desk.ts` → `DESK_RAILS` / `VENUE_ROUTES` |
+| Hyperliquid → Lighter | `routeHyperliquidToLighter({ amount })` |
+| Lighter → Hyperliquid | `routeLighterToHyperliquid({ amount })` |
+| Generic | `routeVenueFunds({ fromVenueId, toVenueId, amount })` |
+| HTTP | `GET /api/fireblocks/desk` · `POST /api/fireblocks/vault/ensure` · `POST /api/fireblocks/route` `{ method, amount }` |
 | Checks | `npm run check:rails` |
 
 ```ts
-import { routeVenueFunds } from "@/lib/fireblocks-rails";
+import { routeHyperliquidToLighter, routeLighterToHyperliquid } from "@/lib/fireblocks-rails";
 
-await routeVenueFunds({
-  fromVenueId: "hyperliquid_fireblocks",
-  toVenueId: "lighter_fireblocks",
-  amount: "1",
-});
+await routeHyperliquidToLighter({ amount: "2" });
+await routeLighterToHyperliquid({ amount: "8" });
 ```
 
-Flow: `POST /api/fireblocks/vault/ensure` can pull a vault buffer from Hyperliquid first. Then `routeVenueFunds` / `POST /api/fireblocks/route` does Relay `quote/v2` + Fireblocks **CONTRACT_CALL** `USDC.approve` (skips if leftover allowance) + **CONTRACT_CALL** `depositErc20`. Reverse is the same two hops the other way: Lighter L2 → vault, then vault TRANSFER to Hyperliquid Bridge2 (hop 1 still needs a Lighter API key). A naked ERC20 TRANSFER to `0x4cd00e…` does **not** credit Lighter (tx `0x92de68a8…`). Do **not** use `POST /api/fireblocks/send` (venue remaining-margin TAP blocks healthy accounts).
+Proven live: 2 USDC HL → Lighter (Relay `depositErc20`); 8 USDC Lighter → HL Bridge2. Cookbook: [docs/ROUTING.md](docs/ROUTING.md).
+
+Do **not** ERC20 TRANSFER to Relay Depository `0x4cd00e…`. Do **not** TRANSFER to `0xa95d9c1f…` as a Hyperliquid deposit. Do **not** use `POST /api/fireblocks/send`.
 
 Add another Fireblocks account:
 
-1. Allowlist dest wallets in Fireblocks Console.
-2. TAP ALLOW for TRANSFER, TYPED_MESSAGE, and **CONTRACT_CALL** (Lighter is Relay `depositErc20`, not ERC20 TRANSFER; USDC approve is also a CONTRACT_CALL to `0xaf88…`), designated signer = the paired API user, Co-Signer Online, callback off.
-3. Add a `DESK_RAILS` row + matching `venues.ts` seeds.
-4. `POST /api/fireblocks/route` with the new venue ids.
-
-Full cookbook: [docs/MANUAL.md](docs/MANUAL.md#venue-to-venue-routing-reuse-this).
+1. Allowlist Relay Depository `0x4cd00e…` and Hyperliquid Bridge2 `0x2Df1c51E…`.
+2. TAP ALLOW TRANSFER, TYPED_MESSAGE, CONTRACT_CALL (and ETH_MESSAGE / APPROVE as used), designated signer = the paired API user, Co-Signer Online, callback off.
+3. Host env: Fireblocks JWT; Lighter API private key (index ≥ 4) for the reverse path.
+4. Add a `DESK_RAILS` row + matching `venues.ts` seeds.
+5. Call the two named functions with the new venue ids.
 
 ## Do not mix
 
@@ -91,6 +91,9 @@ Required env (never commit secrets, never paste into the HTTP UI):
 FIREBLOCKS_API_KEY=
 FIREBLOCKS_SECRET_KEY=
 FIREBLOCKS_API_BASE=https://api.fireblocks.io
+LIGHTER_API_PRIVATE_KEY=
+LIGHTER_API_KEY_INDEX=4
+LIGHTER_ACCOUNT_INDEX=747083
 ```
 
 ## Stack

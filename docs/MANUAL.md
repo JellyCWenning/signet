@@ -4,7 +4,7 @@ This app sets **venue TAP** (margin trigger + max transfer) for Fireblocks-bound
 
 It does not host a Co-Signer. Pair that in Fireblocks. Callback stays off.
 
-Live Console: `/`. Accounts: `/accounts`. Fireblocks TAP: [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor. Ops: [OPS.md](OPS.md).
+Live Console: `/`. Accounts: `/accounts`. Fireblocks TAP: [console.fireblocks.io](https://console.fireblocks.io) → Settings → Policy Editor. Routing cookbook: [ROUTING.md](ROUTING.md). Ops: [OPS.md](OPS.md).
 
 ---
 
@@ -57,9 +57,9 @@ JWT comes from host env only. This HTTP site is not a place to paste RSA.
 | `GET` | `/api/fireblocks/transactions/:id` | `GET /v1/transactions/:id` |
 | `POST` | `/api/fireblocks/transactions` | `POST /v1/transactions` TRANSFER |
 | `POST` | `/api/fireblocks/send` | Venue TAP gate, then create transfer. **Not** for HL ↔ Lighter routing (healthy remaining margin blocks it). |
-| `GET` | `/api/fireblocks/desk` | Desk rails catalog + how to add another Fireblocks account |
+| `GET` | `/api/fireblocks/desk` | Desk rails + named methods (`hyperliquidToLighter`, `lighterToHyperliquid`) |
 | `POST` | `/api/fireblocks/vault/ensure` | Withdraw from Hyperliquid until vault holds `minAmount` |
-| `POST` | `/api/fireblocks/route` | Venue-to-venue USDC on one vault (`from`, `to`, `amount`) |
+| `POST` | `/api/fireblocks/route` | Named method or `from`/`to` + `amount`. Cookbook: [ROUTING.md](ROUTING.md) |
 | `POST` | `/api/fireblocks/typed-message` | `POST /v1/transactions` TYPED_MESSAGE (EIP-712) |
 | `POST` | `/api/fireblocks/hyperliquid/withdraw` | Sign `withdraw3` via Co-Signer, POST Hyperliquid `/exchange` |
 
@@ -232,9 +232,18 @@ This desk can also submit that same `POST /v1/transactions` from Console **Send 
 
 ## Venue-to-venue routing (reuse this)
 
-Hyperliquid ↔ Lighter on the **same** Fireblocks L1 is a two-stage path. Vault withdraw from Hyperliquid is proven (`withdraw3` + Co-Signer). **Lighter credit is not a Fireblocks TRANSFER.**
+Cookbook for both proven walks, env, TAP, and live hashes: **[ROUTING.md](ROUTING.md)**.
 
-The 1 USDC test (`859345ad-…` / tx `0x92de68a8…`) completed on Arbitrum as `USDC.transfer(Relay Depository, 1)` and **did not** credit Lighter account `747083`. Relay `intents/status` for that hash is `unknown`. The working ~12,516 USDC credit used Fireblocks DeFi `depositErc20(depositor, USDC, amount, orderId)` on the same address `0x4cd00e387622c35bddb9b4c962c136462338bc31`.
+Hyperliquid ↔ Lighter on the **same** Fireblocks L1 is two hops through the vault. Developers call the named functions — do not add a second transaction builder.
+
+| Direction | Library | HTTP |
+| --- | --- | --- |
+| Hyperliquid → Lighter | `routeHyperliquidToLighter({ amount: "2" })` | `POST /api/fireblocks/route` `{ "method": "hyperliquidToLighter", "amount": "2" }` |
+| Lighter → Hyperliquid | `routeLighterToHyperliquid({ amount: "8" })` | `{ "method": "lighterToHyperliquid", "amount": "8" }` |
+
+Vault withdraw from Hyperliquid is proven (`withdraw3` + Co-Signer). **Lighter credit is not a Fireblocks TRANSFER.**
+
+The 1 USDC test (`859345ad-…` / tx `0x92de68a8…`) completed on Arbitrum as `USDC.transfer(Relay Depository, 1)` and **did not** credit Lighter account `747083`. Relay `intents/status` for that hash is `unknown`. The working live credit used Fireblocks DeFi `depositErc20` on `0x4cd00e387622c35bddb9b4c962c136462338bc31` (2 USDC: approve `14caf053-…` / deposit `eec59150-…`).
 
 Do **not** use `POST /api/fireblocks/send` for this. That endpoint is venue TAP (remaining-margin trigger + max transfer). Healthy accounts sit at ~100% remaining, so `/send` blocks. Routing goes through Fireblocks TAP + Co-Signer only.
 
@@ -263,7 +272,7 @@ flowchart TD
 | Reverse hop 1 | Lighter L2 `transfer` to Relay account `731033` with memo, then Relay pays the vault L1 | Fireblocks cannot sign Lighter L2. Needs a Lighter API key (`sendTx`) plus Fireblocks RAW EIP-191 `L1Sig`. Relay L2 gas is **$1**. |
 | Reverse hop 2 | Fireblocks TRANSFER native USDC to Hyperliquid **Bridge2** `0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7` | Credits the sending vault L1. Min **5 USDC**. Catalog dest `0xa95d9c1f…` is not Bridge2 — do not send there. |
 
-`routeVenueFunds` runs Relay `quote/v2` then Fireblocks **CONTRACT_CALL** `USDC.approve` (Fireblocks APPROVE only as fallback; skipped when on-chain allowance already covers the amount) + **CONTRACT_CALL** `depositErc20` for Lighter. It still refuses a naked ERC20 TRANSFER to that dest.
+`routeHyperliquidToLighter` runs Relay `quote/v2` then Fireblocks **CONTRACT_CALL** `USDC.approve` (Fireblocks APPROVE only as fallback; skipped when on-chain allowance already covers the amount) + **CONTRACT_CALL** `depositErc20`. It still refuses a naked ERC20 TRANSFER to that dest.
 
 Vault buffer: `POST /api/fireblocks/vault/ensure` `{ "amount": "19", "railId": "eason_albert" }` withdraws from Hyperliquid until the vault holds that much (HL still takes $1 extra). Then route 2 USDC to Lighter from the vault.
 
@@ -273,22 +282,22 @@ Lighter → Hyperliquid is **two hops**, same as the forward path: Lighter L2 �
 
 | File | Role |
 | --- | --- |
-| `src/lib/fireblocks-rails.ts` | Public barrel — `routeVenueFunds`, `DESK_RAILS` |
-| `src/lib/fireblocks-desk.ts` | Catalog. **Add a new Fireblocks account here.** |
-| `src/lib/fireblocks-route.ts` | Orchestrator `routeVenueFunds({ fromVenueId, toVenueId, amount })` |
-| `src/lib/fireblocks-tx.ts` | TRANSFER, TYPED_MESSAGE, wait, EIP-712 `r/s/v`, auto-sign assert |
+| `src/lib/fireblocks-rails.ts` | Public barrel — import this |
+| `src/lib/fireblocks-desk.ts` | Catalog `DESK_RAILS` + `VENUE_ROUTES`. **Add a new Fireblocks account here.** |
+| `src/lib/fireblocks-route.ts` | `routeHyperliquidToLighter` / `routeLighterToHyperliquid` / `routeVenueFunds` |
+| `src/lib/fireblocks-tx.ts` | TRANSFER, TYPED_MESSAGE, ETH_MESSAGE, CONTRACT_CALL, wait, EIP-712 `r/s/v` |
 | `src/lib/hyperliquid-withdraw.ts` | EIP-712 typed data + Hyperliquid `/exchange` |
+| `src/lib/relay-lighter.ts` | Relay quote / status / Lighter collateral |
+| `src/lib/lighter-l2.ts` | Spawn Lighter native signer |
+| `docs/ROUTING.md` | Full walk for both directions |
 
 Bot / later service:
 
 ```ts
-import { routeVenueFunds } from "@/lib/fireblocks-rails";
+import { routeHyperliquidToLighter, routeLighterToHyperliquid } from "@/lib/fireblocks-rails";
 
-await routeVenueFunds({
-  fromVenueId: "hyperliquid_fireblocks",
-  toVenueId: "lighter_fireblocks",
-  amount: "1",
-});
+await routeHyperliquidToLighter({ amount: "2" });
+await routeLighterToHyperliquid({ amount: "8" });
 ```
 
 HTTP (same thing, live USDC):
@@ -297,7 +306,10 @@ HTTP (same thing, live USDC):
 curl -sS http://127.0.0.1:43147/api/fireblocks/desk
 curl -sS -X POST http://127.0.0.1:43147/api/fireblocks/route \
   -H 'content-type: application/json' \
-  -d '{"from":"hyperliquid_fireblocks","to":"lighter_fireblocks","amount":"1"}'
+  -d '{"method":"hyperliquidToLighter","amount":"2"}'
+curl -sS -X POST http://127.0.0.1:43147/api/fireblocks/route \
+  -H 'content-type: application/json' \
+  -d '{"method":"lighterToHyperliquid","amount":"8"}'
 ```
 
 Proven reverse (Lighter → vault → HL, 8 USDC in): L2 `sendTx` + Fireblocks ETH_MESSAGE `611490ed-…`, Relay `0x17895448…` success, vault 36 → 43.975493, then TRANSFER `9d3f2c22-…` tx `0x37e75056…` to Bridge2. Lighter 12520.364716 → **12511.364716**. HL spot 12962.555982 → **12970.531475**. Vault back to 36.
@@ -306,11 +318,12 @@ Catalog check (no network): `npm run check:rails`.
 
 ### Add another Fireblocks account (same flow)
 
-1. **Fireblocks Console** — create / pick the vault. Copy the L1 deposit address. Allowlist destination wallets (Hyperliquid bridge contract, Lighter contract, …) as EXTERNAL_WALLET. Record each dest UUID.
-2. **TAP** — ALLOW for this vault, those dests, asset `USDC_ARB_*`, operations **TRANSFER**, **TYPED_MESSAGE**, and **CONTRACT_CALL** (Lighter Relay deposit + USDC approve), **designated signer** = the paired API user. Co-signers Online. Callback URL empty. If TYPED_MESSAGE is missing, withdraw goes to mobile and comes back `REJECTED_BY_USER`.
-3. **TAP Console catalog** — add one row to `DESK_RAILS` in `src/lib/fireblocks-desk.ts` (`vaultId`, `l1Address`, `arbUsdcAssetId`, dest UUIDs, TAP venue ids).
-4. **TAP venues** — seed matching records in `src/lib/venues.ts` (`hyperliquid_*` address = L1, Lighter `account_index` from Lighter `accountsByL1Address`).
-5. **Call** `routeVenueFunds` or `POST /api/fireblocks/route` with the new venue ids. Do not add a second transaction builder.
+1. **Fireblocks Console** — create / pick the vault. Copy the L1 deposit address. Allowlist Relay Depository `0x4cd00e…` and Hyperliquid Bridge2 `0x2Df1c51E…`. Record each dest UUID.
+2. **TAP** — ALLOW for this vault, those dests, asset `USDC_ARB_*`, operations **TRANSFER**, **TYPED_MESSAGE**, **CONTRACT_CALL**, and **ETH_MESSAGE**, **designated signer** = the paired API user. Co-signers Online. Callback URL empty. If TYPED_MESSAGE is missing, withdraw goes to mobile and comes back `REJECTED_BY_USER`.
+3. **Host env** — Fireblocks JWT plus a Lighter API private key (index ≥ 4) in `/opt/tap-console/.env.local`.
+4. **TAP Console catalog** — add one row to `DESK_RAILS` in `src/lib/fireblocks-desk.ts` (`vaultId`, `l1Address`, `arbUsdcAssetId`, dest UUIDs, TAP venue ids, `lighterAccountIndex`).
+5. **TAP venues** — seed matching records in `src/lib/venues.ts` (`hyperliquid_*` address = L1, Lighter `account_index` from Lighter `accountsByL1Address`).
+6. **Call** `routeHyperliquidToLighter` / `routeLighterToHyperliquid` (or `POST /api/fireblocks/route` with `method`) with the new venue ids. Do not add a second transaction builder.
 
 Cross-vault (two different L1s) is not wired. Same-vault only.
 

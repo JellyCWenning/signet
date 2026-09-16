@@ -3,9 +3,12 @@
  *
  * Later developers: copy one `DESK_RAILS` row, seed matching venue ids in
  * `venues.ts`, allowlist the destination wallets in Fireblocks Console, and
- * keep TAP ALLOW + designated signer covering TRANSFER, TYPED_MESSAGE, and
- * CONTRACT_CALL (Lighter is Relay depositErc20, not ERC20 TRANSFER).
- * Then call `routeVenueFunds` (or POST `/api/fireblocks/route`). Same flow.
+ * keep TAP ALLOW + designated signer covering TRANSFER, TYPED_MESSAGE,
+ * CONTRACT_CALL, and ETH_MESSAGE (Lighter is Relay depositErc20, not ERC20
+ * TRANSFER; reverse L1Sig is ETH_MESSAGE).
+ * Then call `routeHyperliquidToLighter` / `routeLighterToHyperliquid`
+ * (or `routeVenueFunds` / POST `/api/fireblocks/route`). Same flow.
+ * Cookbook: docs/ROUTING.md
  */
 
 export type VenueKindOnRail = "hyperliquid" | "lighter";
@@ -82,6 +85,24 @@ export const DESK_RAILS: DeskRail[] = [
     },
   },
 ];
+
+/** Proven TAP venue ids on the eason_albert rail. Later rails pass their own ids. */
+export const VENUE_ROUTES = {
+  hyperliquidToLighter: {
+    fromVenueId: "hyperliquid_fireblocks",
+    toVenueId: "lighter_fireblocks",
+  },
+  lighterToHyperliquid: {
+    fromVenueId: "lighter_fireblocks",
+    toVenueId: "hyperliquid_fireblocks",
+  },
+} as const;
+
+export type VenueRouteName = keyof typeof VENUE_ROUTES;
+
+export function isVenueRouteName(value: string): value is VenueRouteName {
+  return Object.prototype.hasOwnProperty.call(VENUE_ROUTES, value);
+}
 
 export function listDeskRails(): DeskRail[] {
   return DESK_RAILS.map((rail) => structuredClone(rail));

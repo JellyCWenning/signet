@@ -121,7 +121,7 @@ tail -f /var/log/customer_cosigner.log
 3. Fireblocks Console TAP: ALLOW + designated signer (workspace TAP, not Tokyo venue TAP).
 4. JWT already on Tokyo in `/opt/tap-console/.env.local`. Do not paste RSA into the website.
 5. Small ALLOW transfer from Tokyo `/` or a bot. Mobile should not be required unless TAP is 2-TIER.
-6. Venue-to-venue (HL ↔ Lighter, or a later vault on the same flow): `POST /api/fireblocks/route` — not `/send`. TAP must ALLOW **TRANSFER**, **TYPED_MESSAGE**, and **CONTRACT_CALL**. Catalog is `src/lib/fireblocks-desk.ts`. See MANUAL.
+6. Venue-to-venue (HL ↔ Lighter, or a later vault on the same flow): `POST /api/fireblocks/route` `{ "method": "hyperliquidToLighter" | "lighterToHyperliquid", "amount" }` — not `/send`. TAP must ALLOW **TRANSFER**, **TYPED_MESSAGE**, **CONTRACT_CALL**, and **ETH_MESSAGE**. Catalog is `src/lib/fireblocks-desk.ts`. Cookbook: [ROUTING.md](ROUTING.md).
 7. Rotate keys that appeared in chat: delete IAM user `cursor-temp-cosigner` access keys; revoke any GitHub PAT used to push this repo. Do not commit those values.
 8. HTTPS for Tokyo TAP when you are ready (ACM / ALB or nginx cert).
 

@@ -8,6 +8,8 @@ import {
   DESK_RAILS,
   destForKind,
   hyperliquidWithdrawToCover,
+  isVenueRouteName,
+  listDeskRails,
   parsePositiveUsd,
   railById,
   railForVenue,
@@ -16,6 +18,7 @@ import {
   assertErc20TransferCredits,
   assertHyperliquidDepositDest,
   HYPERLIQUID_ARB_BRIDGE2,
+  VENUE_ROUTES,
 } from "../src/lib/fireblocks-desk.ts";
 import { usdcToMicro } from "../src/lib/relay-lighter.ts";
 
@@ -36,6 +39,21 @@ test("venue ids resolve onto the same rail", () => {
   assert.equal(railForVenue("lighter_fireblocks").id, "eason_albert");
   assert.equal(venueKindOnRail(railById("eason_albert"), "hyperliquid_fireblocks"), "hyperliquid");
   assert.throws(() => railForVenue("unknown_venue"), /not on a desk rail/);
+});
+
+test("VENUE_ROUTES pin the proven HL ↔ Lighter pair", () => {
+  const rail = railById("eason_albert");
+  assert.equal(VENUE_ROUTES.hyperliquidToLighter.fromVenueId, rail.hyperliquidVenueId);
+  assert.equal(VENUE_ROUTES.hyperliquidToLighter.toVenueId, rail.lighterVenueId);
+  assert.equal(VENUE_ROUTES.lighterToHyperliquid.fromVenueId, rail.lighterVenueId);
+  assert.equal(VENUE_ROUTES.lighterToHyperliquid.toVenueId, rail.hyperliquidVenueId);
+  assert.equal(isVenueRouteName("hyperliquidToLighter"), true);
+  assert.equal(isVenueRouteName("lighterToHyperliquid"), true);
+  assert.equal(isVenueRouteName("routeVenueFunds"), false);
+  const listed = listDeskRails();
+  assert.equal(listed.length, DESK_RAILS.length);
+  listed[0].vaultId = "mutated";
+  assert.equal(DESK_RAILS[0].vaultId, "3");
 });
 
 test("HL → Lighter pairs onto the Lighter allowlisted dest", () => {

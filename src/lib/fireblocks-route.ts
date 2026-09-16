@@ -4,8 +4,10 @@ import {
   hyperliquidWithdrawToCover,
   parsePositiveUsd,
   resolveVenueRoute,
+  VENUE_ROUTES,
   type AllowlistedDest,
   type DeskRail,
+  type VenueRouteName,
 } from "@/lib/fireblocks-desk";
 import {
   assertAutoSigned,
@@ -505,4 +507,34 @@ export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFund
   }
 
   return { ok: true, railId: rail.id, amount: String(amount), steps };
+}
+
+type NamedRouteInput = Omit<RouteFundsInput, "fromVenueId" | "toVenueId"> & {
+  fromVenueId?: string;
+  toVenueId?: string;
+};
+
+/** Look up a proven pair in `VENUE_ROUTES`, then run `routeVenueFunds`. */
+export async function routeNamedVenue(
+  name: VenueRouteName,
+  input: NamedRouteInput,
+): Promise<RouteFundsResult> {
+  const pair = VENUE_ROUTES[name];
+  return routeVenueFunds({
+    fromVenueId: input.fromVenueId ?? pair.fromVenueId,
+    toVenueId: input.toVenueId ?? pair.toVenueId,
+    amount: input.amount,
+    note: input.note,
+    waitVaultMs: input.waitVaultMs,
+  });
+}
+
+/** Proven Hyperliquid → vault → Lighter. Same as POST /api/fireblocks/route `{ method: "hyperliquidToLighter" }`. */
+export async function routeHyperliquidToLighter(input: NamedRouteInput): Promise<RouteFundsResult> {
+  return routeNamedVenue("hyperliquidToLighter", input);
+}
+
+/** Proven Lighter → vault → Hyperliquid Bridge2. Amount must cover $1 L2 gas + HL min 5. */
+export async function routeLighterToHyperliquid(input: NamedRouteInput): Promise<RouteFundsResult> {
+  return routeNamedVenue("lighterToHyperliquid", input);
 }

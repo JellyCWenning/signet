@@ -2,7 +2,8 @@
  * Public Fireblocks desk routing API.
  *
  * Add another vault the same way: one `DESK_RAILS` row, matching TAP venues,
- * Fireblocks allowlists + TAP ALLOW, then `routeVenueFunds`. See docs/MANUAL.md.
+ * Fireblocks allowlists + TAP ALLOW, then `routeHyperliquidToLighter` /
+ * `routeLighterToHyperliquid`. Cookbook: docs/ROUTING.md.
  */
 export {
   DESK_RAILS,
@@ -12,6 +13,7 @@ export {
   LIGHTER_WITHDRAW_GAS_USDC,
   destForKind,
   hyperliquidWithdrawToCover,
+  isVenueRouteName,
   listDeskRails,
   parsePositiveUsd,
   railById,
@@ -20,14 +22,19 @@ export {
   venueKindOnRail,
   assertErc20TransferCredits,
   assertHyperliquidDepositDest,
+  VENUE_ROUTES,
   type AllowlistedDest,
   type DestCredit,
   type DeskRail,
   type ResolvedVenueRoute,
   type VenueKindOnRail,
+  type VenueRouteName,
 } from "@/lib/fireblocks-desk";
 export {
   ensureVaultUsdc,
+  routeHyperliquidToLighter,
+  routeLighterToHyperliquid,
+  routeNamedVenue,
   routeVenueFunds,
   signAndSubmitHyperliquidWithdraw,
   type RouteFundsInput,
