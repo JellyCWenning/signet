@@ -236,6 +236,8 @@ Cookbook for both proven walks, env, TAP, and live hashes: **[ROUTING.md](ROUTIN
 
 Hyperliquid ↔ Lighter on the **same** Fireblocks L1 is two hops through the vault. Developers call the named functions — do not add a second transaction builder. Venue cash-out dest is the vault L1 only; **Co-Signer is required even for that hop.**
 
+On the TAP Console home page, use the **HL ↔ Lighter** panel: pick a direction and amount, then Send. That is `POST /api/fireblocks/route`. Do not use a generic Fireblocks TRANSFER to the allowlisted dests.
+
 | Direction | Library | HTTP |
 | --- | --- | --- |
 | Hyperliquid → Lighter | `routeHyperliquidToLighter({ amount: "2" })` | `POST /api/fireblocks/route` `{ "method": "hyperliquidToLighter", "amount": "2" }` |
