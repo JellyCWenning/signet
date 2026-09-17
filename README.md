@@ -20,6 +20,7 @@ Hyperliquid ↔ Lighter on one Fireblocks L1 is two named methods. Later account
 | Lighter → Hyperliquid | `routeLighterToHyperliquid({ amount })` |
 | Generic | `routeVenueFunds({ fromVenueId, toVenueId, amount })` |
 | HTTP | `GET /api/fireblocks/desk` · `POST /api/fireblocks/vault/ensure` · `POST /api/fireblocks/route` `{ method, amount }` |
+| Console UI | `/` → **HL ↔ Lighter** panel (Hyperliquid → Lighter or Lighter → Hyperliquid) |
 | Checks | `npm run check:rails` |
 
 ```ts
