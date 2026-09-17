@@ -17,6 +17,16 @@ Proven rail: `eason_albert` (vault 3, L1 `0x6759b70EA668e076180c06085d51449FB0d7
 
 Every route refreshes the source account before moving funds. Its remaining margin must be at least the source account's adjustable **Minimum margin to transfer out** setting (70% by default), otherwise the route fails before creating a Fireblocks transaction. This applies in both directions.
 
+## From the TAP Console UI
+
+Open http://13.196.167.126/ (or local `:43147`). The **HL ↔ Lighter** panel is the manual transfer.
+
+1. Direction: **Hyperliquid → Lighter** or **Lighter → Hyperliquid**.
+2. Amount in USDC. Proven: `2` forward, `8` reverse (reverse needs about 6+ so Bridge2 still gets ≥ 5 after $1 L2 gas).
+3. **Send**. Confirm the live-USDC dialog. Co-Signer auto-signs if Fireblocks TAP ALLOWs.
+
+That POST is `/api/fireblocks/route`. Venue TAP (margin trigger / Dry-run) does not move USDC.
+
 ```ts
 import {
   routeHyperliquidToLighter,

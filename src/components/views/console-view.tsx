@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { FireblocksTransferForm } from "@/components/fireblocks-transfer-form";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { VenueRouteForm } from "@/components/venue-route-form";
 import { useJson } from "@/hooks/use-json";
-import type { FireblocksStatus, FireblocksVault, FireblocksWallet } from "@/lib/fireblocks-types";
+import type { FireblocksStatus } from "@/lib/fireblocks-types";
 import { formatTimestamp, formatUsd } from "@/lib/format";
 import type { TransferTapDecision, VenueSnapshot } from "@/lib/venues";
 import { cn } from "@/lib/utils";
@@ -27,44 +27,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
   );
   const venues = data?.venues ?? [];
   const { data: fbStatus } = useJson<FireblocksStatus>("/api/fireblocks/credentials", 8000);
-  const [vaults, setVaults] = useState<FireblocksVault[]>([]);
-  const [wallets, setWallets] = useState<{
-    external: FireblocksWallet[];
-    internal: FireblocksWallet[];
-  }>({ external: [], internal: [] });
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    if (!fbStatus?.configured) return;
-    let cancelled = false;
-    void Promise.all([
-      fetch("/api/fireblocks/vaults").then(async (response) => {
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error ?? "Unable to list vaults");
-        return body as { vaults: FireblocksVault[] };
-      }),
-      fetch("/api/fireblocks/wallets")
-        .then(async (response) => {
-          const body = await response.json();
-          if (!response.ok) return { external: [], internal: [] };
-          return body as { external: FireblocksWallet[]; internal: FireblocksWallet[] };
-        })
-        .catch(() => ({ external: [], internal: [] })),
-    ])
-      .then(([vaultPayload, walletPayload]) => {
-        if (cancelled) return;
-        setVaults(vaultPayload.vaults ?? []);
-        setWallets(walletPayload);
-      })
-      .catch((caught) => {
-        if (!cancelled) {
-          toast.error(caught instanceof Error ? caught.message : "Unable to load Fireblocks vaults");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fbStatus?.configured]);
 
   async function refreshBalances() {
     setRefreshing(true);
@@ -91,7 +54,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
       <PageHeader
         eyebrow="TAP Console"
         title="Trigger thresholds"
-        description="Set margin trigger and max single transfer against live balances for Fireblocks-bound Hyperliquid / Lighter."
+        description="Set margin trigger against live Hyperliquid / Lighter balances. Manual HL ↔ Lighter USDC goes through the vault panel, not venue TAP."
         actions={
           <div className="flex flex-col items-end gap-1">
             <Button type="button" variant="outline" disabled={refreshing} onClick={() => void refreshBalances()}>
@@ -122,6 +85,27 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
         />
       </section>
 
+      <Card>
+        <CardHeader className="border-b">
+          <CardDescription>Live USDC · via Fireblocks vault 3</CardDescription>
+          <CardTitle>HL ↔ Lighter</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Manual venue-to-venue. Pick a direction and amount; it always goes through the Fireblocks
+            vault. Do not ERC20 TRANSFER to Relay `0x4cd00e…` or to catalog dest `0xa95d9c1f…`.
+          </p>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {fbStatus?.configured ? (
+            <VenueRouteForm disabled={refreshing} onRouted={() => void reload()} />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Fireblocks JWT is not loaded from host env. Set FIREBLOCKS_API_KEY and
+              FIREBLOCKS_SECRET_KEY in /opt/tap-console/.env.local, then restart tap-console.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {loading && !data ? (
         <p className="text-sm text-muted-foreground">Loading TAP Console…</p>
@@ -133,9 +117,6 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
             <VenueCard
               key={venue.id}
               venue={venue}
-              fireblocksConfigured={Boolean(fbStatus?.configured)}
-              vaults={vaults}
-              wallets={wallets}
               onUpdate={(next) => {
                 setData({
                   venues: venues.map((item) => (item.id === next.id ? next : item)),
@@ -155,15 +136,9 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
 function VenueCard({
   venue,
   onUpdate,
-  fireblocksConfigured,
-  vaults,
-  wallets,
 }: {
   venue: VenueSnapshot;
   onUpdate: (venue: VenueSnapshot) => void;
-  fireblocksConfigured: boolean;
-  vaults: FireblocksVault[];
-  wallets: { external: FireblocksWallet[]; internal: FireblocksWallet[] };
 }) {
   const [margin, setMargin] = useState(String(venue.thresholds.marginTriggerPct));
   const [minSourceMargin, setMinSourceMargin] = useState(
@@ -407,26 +382,12 @@ function VenueCard({
         </div>
 
         <div className="border-t border-border/80 pt-3">
-          <p className="text-xs font-medium">Send via Fireblocks</p>
-          {fireblocksConfigured ? (
-            <div className="mt-3">
-              <FireblocksTransferForm
-                key={venue.id}
-                venueId={venue.id}
-                defaultAmount={String(venue.suggestedTransferUsd || venue.thresholds.maxTransferUsd)}
-                defaultNote={`TAP Console · ${venue.name}`}
-                disabled={locked}
-                vaults={vaults}
-                wallets={wallets}
-              />
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Fireblocks JWT is not loaded from host env. Set FIREBLOCKS_API_KEY and
-              FIREBLOCKS_SECRET_KEY in /opt/tap-console/.env.local, then restart tap-console. Do not
-              paste an RSA key into this HTTP page. Dry-run only checks venue TAP.
-            </p>
-          )}
+          <p className="text-xs font-medium">HL ↔ Lighter transfer</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Use the <span className="text-foreground">HL ↔ Lighter</span> panel above. That path
+            goes through the Fireblocks vault. This card only sets the margin trigger; Dry-run
+            transfer does not move USDC.
+          </p>
         </div>
 
         <div className="border-t border-border/80 pt-3">
