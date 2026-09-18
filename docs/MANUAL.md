@@ -251,6 +251,8 @@ Do **not** use `POST /api/fireblocks/send` for this. That endpoint is venue TAP 
 
 Before either named route signs anything, it refreshes the source venue and checks its adjustable `minSourceMarginPct` (70% by default). Hyperliquid → Lighter checks Hyperliquid; Lighter → Hyperliquid checks Lighter. The route returns a transfer error when the source margin is unavailable or below the configured floor. Configure this per account in the Console as **Minimum margin to transfer out**. Saved venue thresholds persist in `venue-thresholds.local.json` on the host.
 
+The production auto-margin worker calls `POST /api/fireblocks/auto-margin` from a local systemd timer. It checks both seeded venues once per minute. When exactly one enabled account is armed, it routes that account's configured `maxTransferUsd` from the opposite venue through the Fireblocks vault. The normal source-margin guard still applies. Successful and failed attempts enter a persistent cooldown (`AUTO_MARGIN_COOLDOWN_MS`, 10 minutes by default) recorded in `auto-margin-state.local.json`; if both venues are armed, the worker refuses to choose a direction. The POST requires the host-only `AUTO_MARGIN_TOKEN`; `GET` returns status without secrets.
+
 ```mermaid
 flowchart TD
   A[POST /api/fireblocks/route] --> F{From venue}
