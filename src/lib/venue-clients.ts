@@ -106,7 +106,9 @@ class LighterClient implements VenueClient {
       )) as {
         accounts?: Array<{
           collateral?: string;
+          total_asset_value?: string;
           available_balance?: string;
+          cross_initial_margin_requirement?: string;
           positions?: Array<{ allocated_margin?: string }>;
         }>;
       };
@@ -114,11 +116,16 @@ class LighterClient implements VenueClient {
       if (!account) {
         return empty("Lighter account not found");
       }
-      const equityUsd = num(account.collateral);
-      const usedMarginUsd = (account.positions ?? []).reduce(
+      // Cross-margin accounts report each position's allocated_margin as zero.
+      // Use the account-level requirement instead; retain the position sum as
+      // a fallback for older API responses that do not include it.
+      const positionMarginUsd = (account.positions ?? []).reduce(
         (sum, position) => sum + num(position.allocated_margin),
         0,
       );
+      const equityUsd = num(account.total_asset_value) || num(account.collateral);
+      const usedMarginUsd =
+        num(account.cross_initial_margin_requirement) || positionMarginUsd;
       const availableUsd = num(account.available_balance);
       return {
         equityUsd,
