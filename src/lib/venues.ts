@@ -23,6 +23,8 @@ export interface ExchangeCatalogEntry {
 export interface VenueThresholds {
   /** Trigger a top-up when remaining margin (%) is at or below this value. */
   marginTriggerPct: number;
+  /** Refuse a route that withdraws from this venue below this remaining margin. */
+  minSourceMarginPct: number;
   /** Cap for one Fireblocks transfer used to refill this account, in USD. */
   maxTransferUsd: number;
 }
@@ -206,7 +208,7 @@ export function defaultVenueRecords(): VenueRecord[] {
       useDemo: false,
       enabled: true,
       readOnly: false,
-      thresholds: { marginTriggerPct: 15, maxTransferUsd: 25_000 },
+      thresholds: { marginTriggerPct: 15, minSourceMarginPct: 70, maxTransferUsd: 25_000 },
       credentials: {
         account_address: FIREBLOCKS_VAULT_ADDRESS,
         base_url: "https://api.hyperliquid.xyz",
@@ -220,7 +222,7 @@ export function defaultVenueRecords(): VenueRecord[] {
       useDemo: false,
       enabled: true,
       readOnly: false,
-      thresholds: { marginTriggerPct: 18, maxTransferUsd: 15_000 },
+      thresholds: { marginTriggerPct: 18, minSourceMarginPct: 70, maxTransferUsd: 15_000 },
       credentials: {
         base_url: "https://mainnet.zklighter.elliot.ai",
         l1_address: FIREBLOCKS_VAULT_ADDRESS,
@@ -257,6 +259,10 @@ export function credentialHints(
 export function remainingMarginPct(equityUsd: number, availableUsd: number): number {
   if (equityUsd <= 0) return 0;
   return (availableUsd / equityUsd) * 100;
+}
+
+export function sourceMarginAllowsTransfer(currentPct: number, minimumPct: number): boolean {
+  return Number.isFinite(currentPct) && currentPct + 1e-9 >= minimumPct;
 }
 
 export function evaluateTransfer(input: {

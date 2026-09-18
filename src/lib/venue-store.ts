@@ -9,6 +9,7 @@ import {
   isExchangeId,
   READ_ONLY_EXCHANGES,
   requiredCredentialsSet,
+  sourceMarginAllowsTransfer,
   suggestedTransferUsd,
   type ExchangeId,
   type TransferTapDecision,
@@ -24,6 +25,7 @@ interface VenueState {
 }
 
 const EXTRAS_PATH = path.join(process.cwd(), "accounts.local.json");
+const THRESHOLDS_PATH = path.join(process.cwd(), "venue-thresholds.local.json");
 const SEED_IDS = new Set(defaultVenueRecords().map((item) => item.id));
 
 const globalForVenues = globalThis as typeof globalThis & {
@@ -75,6 +77,7 @@ function asUserRecord(value: unknown): VenueRecord | null {
     readOnly: true,
     thresholds: {
       marginTriggerPct: Number(thresholds.marginTriggerPct) || 15,
+      minSourceMarginPct: Number(thresholds.minSourceMarginPct) || 70,
       maxTransferUsd: Number(thresholds.maxTransferUsd) || 10_000,
     },
     credentials,
@@ -87,11 +90,58 @@ function saveExtras(records: VenueRecord[]): void {
   writeFileSync(EXTRAS_PATH, JSON.stringify(extras, null, 2), { encoding: "utf8", mode: 0o600 });
 }
 
+function loadThresholdOverrides(): Record<string, { enabled: boolean; thresholds: VenueThresholds }> {
+  try {
+    if (!existsSync(THRESHOLDS_PATH)) return {};
+    const parsed = JSON.parse(readFileSync(THRESHOLDS_PATH, "utf8")) as Record<
+      string,
+      { enabled?: unknown; thresholds?: Partial<VenueThresholds> }
+    >;
+    return Object.fromEntries(
+      Object.entries(parsed).map(([id, value]) => [
+        id,
+        {
+          enabled: value.enabled !== false,
+          thresholds: {
+            marginTriggerPct: Number(value.thresholds?.marginTriggerPct) || 15,
+            minSourceMarginPct: Number(value.thresholds?.minSourceMarginPct) || 70,
+            maxTransferUsd: Number(value.thresholds?.maxTransferUsd) || 10_000,
+          },
+        },
+      ]),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveThresholdOverrides(records: VenueRecord[]): void {
+  const overrides = Object.fromEntries(
+    records.map((record) => [
+      record.id,
+      { enabled: record.enabled, thresholds: record.thresholds },
+    ]),
+  );
+  writeFileSync(THRESHOLDS_PATH, JSON.stringify(overrides, null, 2), {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+}
+
 function venueState(): VenueState {
   if (!globalForVenues.__venueTap) {
     const seeds = defaultVenueRecords();
     const extras = loadExtras().filter((item) => !SEED_IDS.has(item.id));
-    globalForVenues.__venueTap = { records: [...seeds, ...extras], live: {} };
+    const records = [...seeds, ...extras];
+    const overrides = loadThresholdOverrides();
+    for (const record of records) {
+      const override = overrides[record.id];
+      if (override) {
+        record.enabled = override.enabled;
+        record.thresholds = override.thresholds;
+      }
+    }
+    globalForVenues.__venueTap = { records, live: {} };
   } else {
     for (const record of globalForVenues.__venueTap.records) {
       if (record.readOnly == null) record.readOnly = !SEED_IDS.has(record.id);
@@ -182,6 +232,16 @@ export function updateVenueThresholds(
     }
     record.thresholds.marginTriggerPct = patch.marginTriggerPct;
   }
+  if (patch.minSourceMarginPct != null) {
+    if (
+      !Number.isFinite(patch.minSourceMarginPct) ||
+      patch.minSourceMarginPct <= 0 ||
+      patch.minSourceMarginPct > 100
+    ) {
+      throw new Error("Minimum source margin must be between 0 and 100");
+    }
+    record.thresholds.minSourceMarginPct = patch.minSourceMarginPct;
+  }
   if (patch.maxTransferUsd != null) {
     if (!Number.isFinite(patch.maxTransferUsd) || patch.maxTransferUsd <= 0) {
       throw new Error("Max single transfer must be greater than 0");
@@ -189,6 +249,7 @@ export function updateVenueThresholds(
     record.thresholds.maxTransferUsd = patch.maxTransferUsd;
   }
   if (!SEED_IDS.has(record.id)) saveExtras(venueState().records);
+  saveThresholdOverrides(venueState().records);
   return structuredClone({ ...record, credentials: {} });
 }
 
@@ -253,7 +314,7 @@ export async function createReadOnlyVenue(input: {
     useDemo: false,
     enabled: true,
     readOnly: true,
-    thresholds: { marginTriggerPct: 15, maxTransferUsd: 10_000 },
+    thresholds: { marginTriggerPct: 15, minSourceMarginPct: 70, maxTransferUsd: 10_000 },
     credentials,
   };
   venueState().records.push(record);
@@ -288,4 +349,21 @@ export async function evaluateVenueTransfer(
       amountUsd,
     }),
   };
+}
+
+/** Refresh the source venue and refuse withdrawals below its configured safety floor. */
+export async function assertVenueSourceMargin(id: string): Promise<VenueSnapshot> {
+  const snapshot = await getVenueSnapshot(id, { refreshLive: true });
+  if (snapshot.live.source !== "live") {
+    throw new Error(
+      `Transfer blocked: ${snapshot.name} margin is unavailable${snapshot.live.error ? ` (${snapshot.live.error})` : ""}`,
+    );
+  }
+  const minimum = snapshot.thresholds.minSourceMarginPct;
+  if (!sourceMarginAllowsTransfer(snapshot.live.marginRatioPct, minimum)) {
+    throw new Error(
+      `Transfer blocked: ${snapshot.name} margin ${snapshot.live.marginRatioPct.toFixed(2)}% is below the ${minimum}% minimum source margin`,
+    );
+  }
+  return snapshot;
 }

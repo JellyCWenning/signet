@@ -15,6 +15,8 @@ Proven rail: `eason_albert` (vault 3, L1 `0x6759b70EA668e076180c06085d51449FB0d7
 
 `routeNamedVenue("hyperliquidToLighter" | "lighterToHyperliquid", { amount })` is the shared lookup. `routeVenueFunds({ fromVenueId, toVenueId, amount })` is the generic orchestrator. The two named functions pin `VENUE_ROUTES`. Pass other ids when you add a rail.
 
+Every route refreshes the source account before moving funds. Its remaining margin must be at least the source account's adjustable **Minimum margin to transfer out** setting (70% by default), otherwise the route fails before creating a Fireblocks transaction. This applies in both directions.
+
 ```ts
 import {
   routeHyperliquidToLighter,

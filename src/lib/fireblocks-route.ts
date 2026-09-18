@@ -25,6 +25,7 @@ import {
 } from "@/lib/fireblocks-tx";
 import { hyperliquidWithdrawTypedData, submitHyperliquidWithdraw } from "@/lib/hyperliquid-withdraw";
 import { sendLighterTx, signLighterRelayTransfer } from "@/lib/lighter-l2";
+import { assertVenueSourceMargin } from "@/lib/venue-store";
 import {
   arbUsdcAllowance,
   lighterCollateral,
@@ -461,6 +462,7 @@ async function transferToHyperliquidBridge(input: {
 export async function routeVenueFunds(input: RouteFundsInput): Promise<RouteFundsResult> {
   const amount = parsePositiveUsd(input.amount);
   const { rail, fromKind, dest, toKind } = resolveVenueRoute(input.fromVenueId, input.toVenueId);
+  await assertVenueSourceMargin(input.fromVenueId);
   const steps: RouteStep[] = [];
 
   if (fromKind === "lighter") {

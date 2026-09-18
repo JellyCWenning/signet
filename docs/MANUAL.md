@@ -29,7 +29,7 @@ When remaining margin is at or below the trigger, the bot may send a Fireblocks 
 | `POST` | `/api/venues` | Add a read-only Hyperliquid / Lighter account |
 | `GET` | `/api/venues/:id` | One venue |
 | `DELETE` | `/api/venues/:id` | Remove a user-added watch account |
-| `PUT` | `/api/venues/:id/thresholds` | `{ enabled, marginTriggerPct, maxTransferUsd }` |
+| `PUT` | `/api/venues/:id/thresholds` | `{ enabled, marginTriggerPct, minSourceMarginPct, maxTransferUsd }` |
 | `PUT` | `/api/venues/:id/credentials` | Store API fields in process memory. Never written to disk. |
 | `POST` | `/api/venues/evaluate` | `{ venueId, amountUsd }` → allow / cap / reasons |
 
@@ -246,6 +246,8 @@ Vault withdraw from Hyperliquid is proven (`withdraw3` + Co-Signer). **Lighter c
 The 1 USDC test (`859345ad-…` / tx `0x92de68a8…`) completed on Arbitrum as `USDC.transfer(Relay Depository, 1)` and **did not** credit Lighter account `747083`. Relay `intents/status` for that hash is `unknown`. The working live credit used Fireblocks DeFi `depositErc20` on `0x4cd00e387622c35bddb9b4c962c136462338bc31` (2 USDC: approve `14caf053-…` / deposit `eec59150-…`).
 
 Do **not** use `POST /api/fireblocks/send` for this. That endpoint is venue TAP (remaining-margin trigger + max transfer). Healthy accounts sit at ~100% remaining, so `/send` blocks. Routing goes through Fireblocks TAP + Co-Signer only.
+
+Before either named route signs anything, it refreshes the source venue and checks its adjustable `minSourceMarginPct` (70% by default). Hyperliquid → Lighter checks Hyperliquid; Lighter → Hyperliquid checks Lighter. The route returns a transfer error when the source margin is unavailable or below the configured floor. Configure this per account in the Console as **Minimum margin to transfer out**. Saved venue thresholds persist in `venue-thresholds.local.json` on the host.
 
 ```mermaid
 flowchart TD

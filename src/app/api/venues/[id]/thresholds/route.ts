@@ -14,6 +14,7 @@ export async function PUT(
   const body = (await request.json().catch(() => ({}))) as {
     enabled?: boolean;
     marginTriggerPct?: number;
+    minSourceMarginPct?: number;
     maxTransferUsd?: number;
   };
   try {
@@ -21,6 +22,8 @@ export async function PUT(
       enabled: body.enabled,
       marginTriggerPct:
         body.marginTriggerPct == null ? undefined : Number(body.marginTriggerPct),
+      minSourceMarginPct:
+        body.minSourceMarginPct == null ? undefined : Number(body.minSourceMarginPct),
       maxTransferUsd: body.maxTransferUsd == null ? undefined : Number(body.maxTransferUsd),
     });
     return NextResponse.json(await getVenueSnapshot(id, { refreshLive: false }));

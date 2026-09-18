@@ -21,6 +21,7 @@ import {
   VENUE_ROUTES,
   assertVaultOnlyDest,
 } from "../src/lib/fireblocks-desk.ts";
+import { sourceMarginAllowsTransfer } from "../src/lib/venues.ts";
 import { relayQuoteRecipient, usdcToMicro } from "../src/lib/relay-lighter.ts";
 
 test("eason_albert rail is the proven HL ↔ Lighter vault", () => {
@@ -82,6 +83,12 @@ test("same venue and unknown amounts are rejected", () => {
   );
   assert.throws(() => parsePositiveUsd("0"), /greater than 0/);
   assert.throws(() => parsePositiveUsd(""), /greater than 0/);
+});
+
+test("source venue margin must meet the adjustable floor", () => {
+  assert.equal(sourceMarginAllowsTransfer(70, 70), true);
+  assert.equal(sourceMarginAllowsTransfer(70.01, 70), true);
+  assert.equal(sourceMarginAllowsTransfer(69.99, 70), false);
 });
 
 test("venue cash-out dest is the Fireblocks vault L1", () => {

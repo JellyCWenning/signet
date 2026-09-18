@@ -166,6 +166,9 @@ function VenueCard({
   wallets: { external: FireblocksWallet[]; internal: FireblocksWallet[] };
 }) {
   const [margin, setMargin] = useState(String(venue.thresholds.marginTriggerPct));
+  const [minSourceMargin, setMinSourceMargin] = useState(
+    String(venue.thresholds.minSourceMarginPct),
+  );
   const [maxTransfer, setMaxTransfer] = useState(String(venue.thresholds.maxTransferUsd));
   const [busy, setBusy] = useState<"save" | "evaluate" | "toggle" | "keys" | null>(null);
   const [showKeys, setShowKeys] = useState(false);
@@ -175,9 +178,10 @@ function VenueCard({
   const dirty = useMemo(() => {
     return (
       Number(margin) !== venue.thresholds.marginTriggerPct ||
+      Number(minSourceMargin) !== venue.thresholds.minSourceMarginPct ||
       Number(maxTransfer) !== venue.thresholds.maxTransferUsd
     );
-  }, [margin, maxTransfer, venue.thresholds]);
+  }, [margin, minSourceMargin, maxTransfer, venue.thresholds]);
 
   function showResult(ok: boolean, text: string) {
     setResult({ ok, text });
@@ -205,6 +209,7 @@ function VenueCard({
         body: JSON.stringify({
           enabled,
           marginTriggerPct: Number(margin),
+          minSourceMarginPct: Number(minSourceMargin),
           maxTransferUsd: Number(maxTransfer),
         }),
       });
@@ -212,13 +217,14 @@ function VenueCard({
       if (!response.ok) throw new Error(body.error ?? "Unable to save TAP");
       onUpdate(body as VenueSnapshot);
       setMargin(String(body.thresholds.marginTriggerPct));
+      setMinSourceMargin(String(body.thresholds.minSourceMarginPct));
       setMaxTransfer(String(body.thresholds.maxTransferUsd));
       const switched = extra?.enabled != null && extra.enabled !== venue.enabled;
       showResult(
         true,
         switched
           ? `${venue.name} is ${enabled ? "On" : "Off"}`
-          : `${venue.name} TAP saved · trigger ${body.thresholds.marginTriggerPct}% · max ${formatUsd(body.thresholds.maxTransferUsd)}`,
+          : `${venue.name} TAP saved · trigger ${body.thresholds.marginTriggerPct}% · source floor ${body.thresholds.minSourceMarginPct}% · max ${formatUsd(body.thresholds.maxTransferUsd)}`,
       );
     } catch (caught) {
       if (toggling) onUpdate(venue);
@@ -354,6 +360,12 @@ function VenueCard({
             suffix="%"
             value={margin}
             onChange={setMargin}
+          />
+          <Field
+            label="Minimum margin to transfer out"
+            suffix="%"
+            value={minSourceMargin}
+            onChange={setMinSourceMargin}
           />
           <Field
             label="Max single transfer"
