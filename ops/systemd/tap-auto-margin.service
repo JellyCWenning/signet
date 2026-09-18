@@ -1,0 +1,12 @@
+[Unit]
+Description=TAP Console automatic margin check
+After=tap-console.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/opt/tap-console
+EnvironmentFile=/opt/tap-console/.env.local
+ExecStart=/bin/bash -lc '/usr/bin/curl --fail-with-body --silent --show-error --max-time 570 --request POST --header "Authorization: Bearer ${AUTO_MARGIN_TOKEN}" http://127.0.0.1:43147/api/fireblocks/auto-margin'
+TimeoutStartSec=10min
