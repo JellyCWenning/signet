@@ -8,5 +8,5 @@ Type=oneshot
 User=ec2-user
 WorkingDirectory=/opt/tap-console
 EnvironmentFile=/opt/tap-console/.env.local
-ExecStart=/bin/bash -lc '/usr/bin/curl --fail-with-body --silent --show-error --max-time 570 --request POST --header "Authorization: Bearer ${AUTO_MARGIN_TOKEN}" http://127.0.0.1:43147/api/fireblocks/auto-margin'
+ExecStart=/bin/bash -lc 'echo "header = \"Authorization: Bearer $AUTO_MARGIN_TOKEN\"" | /usr/bin/curl --fail-with-body --silent --show-error --max-time 570 --request POST --config - http://127.0.0.1:43147/api/fireblocks/auto-margin'
 TimeoutStartSec=10min
