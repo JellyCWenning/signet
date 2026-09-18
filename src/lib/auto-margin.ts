@@ -9,11 +9,20 @@ const DEFAULT_COOLDOWN_MS = 10 * 60_000;
 type AutoRoute = "hyperliquidToLighter" | "lighterToHyperliquid";
 
 interface AutoMarginState {
-  status: "never" | "idle" | "cooldown" | "running" | "completed" | "blocked" | "failed";
+  status:
+    | "never"
+    | "idle"
+    | "cooldown"
+    | "latched"
+    | "running"
+    | "completed"
+    | "blocked"
+    | "failed";
   checkedAt?: string;
   lastAttemptAt?: string;
   lastCompletedAt?: string;
   route?: AutoRoute;
+  latchedVenueId?: string;
   amount?: string;
   message?: string;
   result?: RouteFundsResult;
@@ -62,6 +71,7 @@ export async function runAutoMarginCycle(): Promise<AutoMarginStatus> {
     getVenueSnapshot("lighter_fireblocks", { refreshLive: true }),
   ]);
   const armed = [hyperliquid, lighter].filter((venue) => venue.enabled && venue.armed);
+  const previous = readState();
 
   if (armed.length === 0) {
     return { ...saveState({ status: "idle", checkedAt, message: "No account is armed" }), enabled: true, cooldownMs: cooldownMs() };
@@ -82,7 +92,21 @@ export async function runAutoMarginCycle(): Promise<AutoMarginStatus> {
   const route: AutoRoute =
     destination.id === "lighter_fireblocks" ? "hyperliquidToLighter" : "lighterToHyperliquid";
   const amount = String(destination.thresholds.maxTransferUsd);
-  const previous = readState();
+  const priorCompletedDestination =
+    previous.lastCompletedAt && previous.route === route ? destination.id : undefined;
+  if ((previous.latchedVenueId ?? priorCompletedDestination) === destination.id) {
+    return {
+      ...saveState({
+        ...previous,
+        status: "latched",
+        latchedVenueId: destination.id,
+        checkedAt,
+        message: `${destination.name} already received one transfer for this trigger event; waiting for margin to recover above ${destination.thresholds.marginTriggerPct}%`,
+      }),
+      enabled: true,
+      cooldownMs: cooldownMs(),
+    };
+  }
   const lastAttempt = previous.lastAttemptAt ? Date.parse(previous.lastAttemptAt) : 0;
   const remaining = cooldownMs() - (Date.now() - lastAttempt);
   if (lastAttempt && remaining > 0) {
@@ -112,6 +136,7 @@ export async function runAutoMarginCycle(): Promise<AutoMarginStatus> {
         lastAttemptAt,
         lastCompletedAt: new Date().toISOString(),
         route,
+        latchedVenueId: destination.id,
         amount,
         message: `${destination.name} auto top-up completed`,
         result,
