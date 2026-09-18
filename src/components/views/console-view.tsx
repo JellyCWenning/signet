@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { TransferHistory } from "@/components/transfer-history";
 import { VenueRouteForm } from "@/components/venue-route-form";
 import { useJson } from "@/hooks/use-json";
 import type { FireblocksStatus } from "@/lib/fireblocks-types";
@@ -28,6 +29,7 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
   const venues = data?.venues ?? [];
   const { data: fbStatus } = useJson<FireblocksStatus>("/api/fireblocks/credentials", 8000);
   const [refreshing, setRefreshing] = useState(false);
+  const [historyRevision, setHistoryRevision] = useState(0);
 
   async function refreshBalances() {
     setRefreshing(true);
@@ -96,7 +98,13 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
         </CardHeader>
         <CardContent className="pt-4">
           {fbStatus?.configured ? (
-            <VenueRouteForm disabled={refreshing} onRouted={() => void reload()} />
+            <VenueRouteForm
+              disabled={refreshing}
+              onRouted={() => {
+                setHistoryRevision((value) => value + 1);
+                void reload();
+              }}
+            />
           ) : (
             <p className="text-xs text-muted-foreground">
               Fireblocks JWT is not loaded from host env. Set FIREBLOCKS_API_KEY and
@@ -105,6 +113,8 @@ export function ConsoleView({ initial }: { initial: ConsolePayload }) {
           )}
         </CardContent>
       </Card>
+
+      <TransferHistory enabled={Boolean(fbStatus?.configured)} refreshKey={historyRevision} />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {loading && !data ? (

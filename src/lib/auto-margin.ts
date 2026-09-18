@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { routeNamedVenue, type RouteFundsResult } from "@/lib/fireblocks-route";
+import type { RouteFundsResult } from "@/lib/fireblocks-route";
+import { routeNamedVenueRecorded } from "@/lib/recorded-route";
 import { getVenueSnapshot } from "@/lib/venue-store";
 
 const STATE_PATH = path.join(process.cwd(), "auto-margin-state.local.json");
@@ -125,10 +126,10 @@ export async function runAutoMarginCycle(): Promise<AutoMarginStatus> {
   const lastAttemptAt = new Date().toISOString();
   saveState({ status: "running", checkedAt, lastAttemptAt, route, amount });
   try {
-    const result = await routeNamedVenue(route, {
+    const result = await routeNamedVenueRecorded(route, {
       amount,
       note: `Auto margin · ${destination.name} at ${destination.live.marginRatioPct.toFixed(2)}%`,
-    });
+    }, "automatic");
     return {
       ...saveState({
         status: "completed",

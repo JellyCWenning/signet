@@ -1,5 +1,5 @@
 import { isVenueRouteName } from "@/lib/fireblocks-desk";
-import { routeNamedVenue, routeVenueFunds } from "@/lib/fireblocks-route";
+import { routeNamedVenueRecorded, routeVenueFundsRecorded } from "@/lib/recorded-route";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -29,13 +29,13 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      const result = await routeNamedVenue(body.method, {
+      const result = await routeNamedVenueRecorded(body.method, {
         fromVenueId: body.fromVenueId ?? body.from,
         toVenueId: body.toVenueId ?? body.to,
         amount,
         note,
         waitVaultMs,
-      });
+      }, "manual");
       return NextResponse.json(result);
     }
 
@@ -50,13 +50,13 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const result = await routeVenueFunds({
+    const result = await routeVenueFundsRecorded({
       fromVenueId,
       toVenueId,
       amount,
       note,
       waitVaultMs,
-    });
+    }, "manual");
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

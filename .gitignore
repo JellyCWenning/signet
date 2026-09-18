@@ -37,6 +37,7 @@ yarn-error.log*
 accounts.local.json
 venue-thresholds.local.json
 auto-margin-state.local.json
+transfer-history.local.json
 
 # vercel
 .vercel
